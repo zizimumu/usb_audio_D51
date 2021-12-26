@@ -112,7 +112,7 @@ int main ( void )
         /* Maintain state machines of all polled MPLAB Harmony modules. */
         SYS_Tasks ( );
         
-        LED1_Toggle();
+        //LED1_Toggle();
         //SYSTICK_DelayMs(1000);
        // printf("use irq 0x%x, st 0x%x\r\n",reads(0x41000018),reads(0x4100001c));
 
