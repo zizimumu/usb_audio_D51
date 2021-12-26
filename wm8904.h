@@ -1250,7 +1250,30 @@
 
 
 
+typedef enum
+{
+
+	CODEC_HPOUT_MUTE_OFF = 0,
+	CODEC_HPOUT_MUTE_ON	
+
+} CODEC_MUTE_TYPE;
+
+
+typedef enum
+{
+
+	WM8904_HP_VOL_0DB = 0x39,
+	WM8904_HP_VOL_1DB = 0x3a,
+	WM8904_HP_VOL_2DB = 0x3b,
+	WM8904_HP_VOL_3DB = 0x3c,
+	WM8904_HP_VOL_4DB = 0x3d,
+	WM8904_HP_VOL_5DB = 0x3e,
+	WM8904_HP_VOL_6DB = 0x3e,
+
+} WM8904_HP_VOL_TYPE;
 
 
 
+void wm8904_hpout_mute(unsigned char state);
+void configure_codec(void);
 #endif

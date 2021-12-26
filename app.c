@@ -29,6 +29,7 @@
 #include "configuration.h"
 #include "definitions.h"
 #include "app.h"
+#include "wm8904.h"
 
 
 #define debug_log(...) printf(__VA_ARGS__) 
@@ -303,7 +304,7 @@ void process_read_data(void )
 {
     int i;
     USB_DEVICE_AUDIO_RESULT ret;
-	static unsigned int rx_cnt = 0;
+	//static unsigned int rx_cnt = 0;
 
 
 	// printf("dma pt 0x%x\r\n",DMAC_ChannelGetTransferredCount(DMAC_CHANNEL_1));
@@ -328,9 +329,9 @@ void process_read_data(void )
                 buf_queue[i].isDataReady = 0;
             }
 			
-			if((rx_cnt % 250) == 0)
-				printf("rx cnt %d\r\n",rx_cnt);
-			rx_cnt++;
+			//if((rx_cnt % 250) == 0)
+			//	printf("rx cnt %d\r\n",rx_cnt);
+			//rx_cnt++;
         }
     }   
 }
@@ -345,7 +346,7 @@ void dma_callback(DMAC_TRANSFER_EVENT status, uintptr_t context) {
 }
 
 
-int wait_dma_buff_sync()
+void  wait_dma_buff_sync()
 {
 
     unsigned int writePt = appData.playWritePt;
@@ -373,7 +374,7 @@ int wait_dma_buff_sync()
 	    }
 
 		timer = SYSTICK_msCounter();
-		delay = SYSTICK_msPeriodGet(start);// delay must <=10ms
+		delay = SYSTICK_msPeriodGet(start);// delay must <=5ms
 
 	}while(gap >= UNDERRUN_LEVEL/2 && delay < 5);
 
@@ -389,6 +390,7 @@ void start_player(void)
 	DMAC_ChannelCallbackRegister(DMAC_CHANNEL_1, dma_callback, 0);
 	DMAC_ChannelTransfer(DMAC_CHANNEL_1,(void *) &dma_buff[0],(void *)I2S_DEST ,sizeof(dma_buff));
 	start_i2s_tx();
+	wm8904_hpout_mute(CODEC_HPOUT_MUTE_OFF);
 	
 	
 	debug_log("playing\r\n");
@@ -400,13 +402,14 @@ void stop_play()
 	
 	wait_dma_buff_sync();
 	stop_i2s_tx();
+	wm8904_hpout_mute(CODEC_HPOUT_MUTE_ON);
 	DMAC_ChannelDisable(DMAC_CHANNEL_1);
 	ClearBuffQueue();
 
 	appData.playWritePt = 0;
 	appData.dmaBuffState = PLAY_DMA_BUF_NORMAL;
 
-	debug_log("stoping play\r\n");
+	debug_log("stopping play\r\n");
 }
 
 
