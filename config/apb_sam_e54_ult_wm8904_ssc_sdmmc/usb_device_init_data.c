@@ -106,7 +106,7 @@ const USB_DEVICE_DESCRIPTOR deviceDescriptor =
 
 
 
-// #define USB_AUDIO_FEEDUP_ENABLE 
+
 #define AUDIO_PACKET_SZE(frq)          (uint8_t)(((frq * 2 * 2)/1000) & 0xFF), \
                                        (uint8_t)((((frq * 2 * 2)/1000) >> 8) & 0xFF)
 #define SAMPLE_FREQ(frq)               (uint8_t)(frq), (uint8_t)((frq >> 8)), (uint8_t)((frq >> 16))
@@ -114,8 +114,7 @@ const USB_DEVICE_DESCRIPTOR deviceDescriptor =
 #define USB_ENDPOINT_SYNC_TYPE_ASYNC                0x04
 #define AUDIO_FEED_UP_EP                     0x82
 #define FEED_RATE 3
-#define USBD_AUDIO_MAX_FREQ 48000
-#define USB_MAX_RX_SIZE                 ( AUDIO_PACKET_SZE(USBD_AUDIO_MAX_FREQ)*2 )
+
 
 
 #ifdef USB_AUDIO_FEEDUP_ENABLE 
@@ -135,7 +134,7 @@ const uint8_t fullSpeedConfigurationDescriptor[]=
 
     0x09,                                                   // Size of this descriptor in bytes
     USB_DESCRIPTOR_CONFIGURATION,                           // Descriptor Type
-    USB_DEVICE_16bitTo8bitArrange(110+FEEDUP_EP_SIZE),       //(110 Bytes)Size of the Configuration descriptor
+    USB_DEVICE_16bitTo8bitArrange((110+FEEDUP_EP_SIZE)),       //(110 Bytes)Size of the Configuration descriptor
     2,                                                      // Number of interfaces in this configuration
     0x01,                                                   // Index value of this configuration
     0x00,                                                   // Configuration string index
@@ -233,7 +232,7 @@ const uint8_t fullSpeedConfigurationDescriptor[]=
     0x01,                            // Alternate Setting Number (bAlternateSetting)
 
 #ifdef USB_AUDIO_FEEDUP_ENABLE
-	0x02
+	0x02,
 #else
     0x01,                            // Number of endpoints in this intf (bNumEndpoints)
 #endif
@@ -271,7 +270,7 @@ const uint8_t fullSpeedConfigurationDescriptor[]=
     1 | USB_EP_DIRECTION_OUT,                            // Endpoint1:OUT (bEndpointAddress)
 #ifdef USB_AUDIO_FEEDUP_ENABLE
   USB_ENDPOINT_TYPE_ISOCHRONOUS  | USB_ENDPOINT_SYNC_TYPE_ASYNC,        /* bmAttributes */
-  (uint8_t)(USB_MAX_RX_SIZE & 0xff),(uint8_t)((USB_MAX_RX_SIZE>>8)&0xff),	
+  (uint8_t)(USB_MAX_RX_SIZE & 0xff),(uint8_t)((USB_MAX_RX_SIZE>>8)&0xff) ,	
 #else
     0x09,                            /* ?(bmAttributes) Isochronous,Adaptive, data endpoint */
     AUDIO_PACKET_SZE(USBD_AUDIO_MAX_FREQ),   // ?(wMaxPacketSize) //48 * 4
@@ -302,7 +301,7 @@ const uint8_t fullSpeedConfigurationDescriptor[]=
 	  USB_DESCRIPTOR_ENDPOINT, 			  /* bDescriptorType */
 	  AUDIO_FEED_UP_EP, 				/* bEndpointAddress 2 in endpoint*/
 	  0x11, 							  /* bmAttributes */
-	  3,0,								  /* wMaxPacketSize in Bytes 3 */
+	  8,0,								  /* wMaxPacketSize in Bytes 3 */
 	  1,								  /* bInterval 1ms*/
 	  FEED_RATE,						/* bRefresh 1 ~ 9,host will get feedup evary FEED_RATE power of 2*/
 	  0x00, 							  /* bSynchAddress */

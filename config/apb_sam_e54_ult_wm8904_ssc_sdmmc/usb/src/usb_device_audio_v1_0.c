@@ -309,7 +309,7 @@ void _USB_DEVICE_AUDIO_SetupPacketHandler
                         );
                         if (endpointEnableResult != USB_ERROR_NONE)
                         {
-                            SYS_DEBUG_MESSAGE(SYS_ERROR_INFO, "_USB_DEVICE_AUDIO_SetupPacketHandler():  Endpoint not Enabled");
+                            debug_log("_USB_DEVICE_AUDIO_SetupPacketHandler():  Endpoint not Enabled");
                         }
 
                         if (noOfEndpoints == 2)
@@ -319,11 +319,8 @@ void _USB_DEVICE_AUDIO_SetupPacketHandler
                              * Sync Endpoint. Enable the Sync Endpoint. */
 
 
-
 	                        ep = pCurAlternateStng->isoSyncEp.epAddr;
-	                        
 	                        maxPacketSize = pCurAlternateStng->isoSyncEp.epMaxPacketSize;
-
 
 	                        endpointEnableResult = USB_DEVICE_EndpointEnable (
 	                            usbDeviceHandle ,
@@ -334,12 +331,11 @@ void _USB_DEVICE_AUDIO_SetupPacketHandler
 							
 	                        if (endpointEnableResult != USB_ERROR_NONE)
 	                        {
-	                            debug_log("_USB_DEVICE_AUDIO_SetupPacketHandler(): sync Endpoint not Enabled");
+	                            debug_log("_USB_DEVICE_AUDIO_SetupPacketHandler(): sync Endpoint not Enabled %d\r\n",endpointEnableResult);
 	                        }
 							else{
-								debug_log("_USB_DEVICE_AUDIO_SetupPacketHandler(): sync Endpoint Enabled");
+								//debug_log("_USB_DEVICE_AUDIO_SetupPacketHandler(): sync Endpoint Enabled\r\n");
 							}
-						
 
                         }
 
