@@ -105,6 +105,27 @@ const USB_DEVICE_DESCRIPTOR deviceDescriptor =
 };
 
 
+
+// #define USB_AUDIO_FEEDUP_ENABLE 
+#define AUDIO_PACKET_SZE(frq)          (uint8_t)(((frq * 2 * 2)/1000) & 0xFF), \
+                                       (uint8_t)((((frq * 2 * 2)/1000) >> 8) & 0xFF)
+#define SAMPLE_FREQ(frq)               (uint8_t)(frq), (uint8_t)((frq >> 8)), (uint8_t)((frq >> 16))
+#define USB_ENDPOINT_TYPE_ISOCHRONOUS                 0x01
+#define USB_ENDPOINT_SYNC_TYPE_ASYNC                0x04
+#define AUDIO_FEED_UP_EP                     0x82
+#define FEED_RATE 3
+#define USBD_AUDIO_MAX_FREQ 48000
+#define USB_MAX_RX_SIZE                 ( AUDIO_PACKET_SZE(USBD_AUDIO_MAX_FREQ)*2 )
+
+
+#ifdef USB_AUDIO_FEEDUP_ENABLE 
+	#define FEEDUP_EP_SIZE 0x9
+#else
+	#define FEEDUP_EP_SIZE 0
+#endif
+
+
+
 /*******************************************
  *  USB Full Speed Configuration Descriptor
  *******************************************/
@@ -114,7 +135,7 @@ const uint8_t fullSpeedConfigurationDescriptor[]=
 
     0x09,                                                   // Size of this descriptor in bytes
     USB_DESCRIPTOR_CONFIGURATION,                           // Descriptor Type
-    USB_DEVICE_16bitTo8bitArrange(110),                      //(110 Bytes)Size of the Configuration descriptor
+    USB_DEVICE_16bitTo8bitArrange(110+FEEDUP_EP_SIZE),       //(110 Bytes)Size of the Configuration descriptor
     2,                                                      // Number of interfaces in this configuration
     0x01,                                                   // Index value of this configuration
     0x00,                                                   // Configuration string index
@@ -135,6 +156,8 @@ const uint8_t fullSpeedConfigurationDescriptor[]=
     USB_AUDIO_PR_PROTOCOL_UNDEFINED, // Protocol code  (bInterfaceProtocol)
     0x00,                            // Interface string index (iInterface)
 
+
+
     /* USB Speaker Class-specific AC Interface Descriptor  */
     0x09,                           // Size of this descriptor in bytes (bLength)
     USB_AUDIO_CS_INTERFACE,         // CS_INTERFACE Descriptor Type (bDescriptorType)
@@ -153,6 +176,7 @@ const uint8_t fullSpeedConfigurationDescriptor[]=
     1,                           /* AudioStreaming interface 1 belongs to this
                                      * AudioControl interface. (baInterfaceNr(1))*/
 
+
     /* USB Speaker Input Terminal Descriptor */
     0x0C,                           // Size of the descriptor, in bytes (bLength)
     USB_AUDIO_CS_INTERFACE,    		// CS_INTERFACE Descriptor Type (bDescriptorType)
@@ -164,6 +188,7 @@ const uint8_t fullSpeedConfigurationDescriptor[]=
     0x03,0x00,                      // (wChannelConfig)
     0x00,                           // Unused.(iChannelNames)
     0x00,                           // Unused. (iTerminal)
+
 
     /* USB Speaker Feature Unit Descriptor */
     0x0A,                           // Size of the descriptor, in bytes (bLength)
@@ -177,6 +202,7 @@ const uint8_t fullSpeedConfigurationDescriptor[]=
     0x00,                           // (bmaControls(2)) Controls for Channel 2
     0x00,			    //  iFeature
 
+
     /* USB Speaker Output Terminal Descriptor */
     0x09,                           // Size of the descriptor, in bytes (bLength)
     USB_AUDIO_CS_INTERFACE,    		// CS_INTERFACE Descriptor Type (bDescriptorType)
@@ -186,6 +212,7 @@ const uint8_t fullSpeedConfigurationDescriptor[]=
     0x00,                           // No association (bAssocTerminal)
     0x05,             				// (bSourceID)
     0x00,                           // Unused. (iTerminal)
+
 
     /* USB Speaker Standard AS Interface Descriptor (Alt. Set. 0) */
     0x09,                            // Size of the descriptor, in bytes (bLength)
@@ -198,16 +225,24 @@ const uint8_t fullSpeedConfigurationDescriptor[]=
     0x00,                            // Protocol code  (bInterfaceProtocol)
     0x00,                            // Interface string index (iInterface)
 
+
     /* USB Speaker Standard AS Interface Descriptor (Alt. Set. 1) */
     0x09,                            // Size of the descriptor, in bytes (bLength)
     USB_DESCRIPTOR_INTERFACE,        // INTERFACE descriptor type (bDescriptorType)
     1,	 // Interface Number  (bInterfaceNumber)
     0x01,                            // Alternate Setting Number (bAlternateSetting)
+
+#ifdef USB_AUDIO_FEEDUP_ENABLE
+	0x02
+#else
     0x01,                            // Number of endpoints in this intf (bNumEndpoints)
+#endif
+	
     USB_AUDIO_CLASS_CODE,            // Class code  (bInterfaceClass)
     USB_AUDIO_AUDIOSTREAMING,        // Subclass code (bInterfaceSubclass)
     0x00,                            // Protocol code  (bInterfaceProtocol)
     0x00,                            // Interface string index (iInterface)
+
 
     /*  USB Speaker Class-specific AS General Interface Descriptor */
     0x07,                           // Size of the descriptor, in bytes (bLength)
@@ -216,6 +251,7 @@ const uint8_t fullSpeedConfigurationDescriptor[]=
     0x01,           				// Unit ID of the Output Terminal.(bTerminalLink)
     0x01,                           // Interface delay. (bDelay)
     0x01,0x00,                      // PCM Format (wFormatTag)
+
 
     /*  USB Speaker Type 1 Format Type Descriptor */
     0x0B,                           // Size of the descriptor, in bytes (bLength)
@@ -228,16 +264,27 @@ const uint8_t fullSpeedConfigurationDescriptor[]=
     0x01,                           // One frequency supported. (bSamFreqType)
     0x80,0xBB,0x00,                 // Sampling Frequency = 48000 Hz(tSamFreq)
 
+
     /*  USB Speaker Standard Endpoint Descriptor */
     0x09,                            // Size of the descriptor, in bytes (bLength)
     USB_DESCRIPTOR_ENDPOINT,         // ENDPOINT descriptor (bDescriptorType)
     1 | USB_EP_DIRECTION_OUT,                            // Endpoint1:OUT (bEndpointAddress)
-    0x09,                            /* ?(bmAttributes) Isochronous,
-                                      * Adaptive, data endpoint */
-    (192),0x00,                      // ?(wMaxPacketSize) //48 * 4
+#ifdef USB_AUDIO_FEEDUP_ENABLE
+  USB_ENDPOINT_TYPE_ISOCHRONOUS  | USB_ENDPOINT_SYNC_TYPE_ASYNC,        /* bmAttributes */
+  (uint8_t)(USB_MAX_RX_SIZE & 0xff),(uint8_t)((USB_MAX_RX_SIZE>>8)&0xff),	
+#else
+    0x09,                            /* ?(bmAttributes) Isochronous,Adaptive, data endpoint */
+    AUDIO_PACKET_SZE(USBD_AUDIO_MAX_FREQ),   // ?(wMaxPacketSize) //48 * 4
+#endif
+
     0x01,                            // One packet per frame.(bInterval)
     0x00,                            // Unused. (bRefresh)
+#ifdef USB_AUDIO_FEEDUP_ENABLE
     0x00,                            // Unused. (bSynchAddress)
+#else
+	AUDIO_FEED_UP_EP,
+#endif
+
 
     /* USB Speaker Class-specific Isoc. Audio Data Endpoint Descriptor*/
     0x07,                            // Size of the descriptor, in bytes (bLength)
@@ -247,6 +294,20 @@ const uint8_t fullSpeedConfigurationDescriptor[]=
                                         control, no packet padding.(bmAttributes)*/
     0x00,                            // Unused. (bLockDelayUnits)
     0x00,0x00,                       // Unused. (wLockDelay)
+
+
+#ifdef USB_AUDIO_FEEDUP_ENABLE
+	  /* ##Endpoint 2 for feedback - Standard Descriptor */
+	  0x09,  							/* bLength */
+	  USB_DESCRIPTOR_ENDPOINT, 			  /* bDescriptorType */
+	  AUDIO_FEED_UP_EP, 				/* bEndpointAddress 2 in endpoint*/
+	  0x11, 							  /* bmAttributes */
+	  3,0,								  /* wMaxPacketSize in Bytes 3 */
+	  1,								  /* bInterval 1ms*/
+	  FEED_RATE,						/* bRefresh 1 ~ 9,host will get feedup evary FEED_RATE power of 2*/
+	  0x00, 							  /* bSynchAddress */
+	  /* 09 byte*/
+#endif
 
 
 

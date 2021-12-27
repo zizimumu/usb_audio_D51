@@ -48,6 +48,9 @@
 #include "usb/src/usb_device_audio_local.h"
 
 
+#define debug_log(...) printf(__VA_ARGS__) 
+
+
 // *****************************************************************************
 // *****************************************************************************
 // Section: File Scope or Global Data Types
@@ -314,6 +317,30 @@ void _USB_DEVICE_AUDIO_SetupPacketHandler
                             /* If number of Endpoints is Two, then it is sure
                              * that this alternate setting reports a Isochronous
                              * Sync Endpoint. Enable the Sync Endpoint. */
+
+
+
+	                        ep = pCurAlternateStng->isoSyncEp.epAddr;
+	                        
+	                        maxPacketSize = pCurAlternateStng->isoSyncEp.epMaxPacketSize;
+
+
+	                        endpointEnableResult = USB_DEVICE_EndpointEnable (
+	                            usbDeviceHandle ,
+	                            0,
+	                            ep ,
+	                            USB_TRANSFER_TYPE_ISOCHRONOUS ,
+	                            maxPacketSize);
+							
+	                        if (endpointEnableResult != USB_ERROR_NONE)
+	                        {
+	                            debug_log("_USB_DEVICE_AUDIO_SetupPacketHandler(): sync Endpoint not Enabled");
+	                        }
+							else{
+								debug_log("_USB_DEVICE_AUDIO_SetupPacketHandler(): sync Endpoint Enabled");
+							}
+						
+
                         }
 
                         /* Change Audio Instance object state to Initialized */ 
@@ -724,7 +751,8 @@ void _USB_DEVICE_AUDIO_Initialize
 
                     /* Save max packet size to the Sync interface */
                     audioInstance->infCollection.streamInf[strmIntrfcIndex].alterntSetting[alternateSetting].isoSyncEp.epMaxPacketSize = maxPacketSize;
-                }
+					debug_log("usb audio driver: found feedback EP, addr 0x%x, size %d\r\n",epAddressAndDirection,maxPacketSize);
+				}
             }
             break;
 

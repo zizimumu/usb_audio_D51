@@ -346,7 +346,7 @@ void  wait_dma_buff_sync()
     unsigned int writePt = appData.playWritePt;
     unsigned int readPt,start;
     unsigned int gap;
-	int delay;
+	unsigned int delay;
 	//static unsigned char dmaBuffState = PLAY_DMA_BUF_NORMAL;
 
 
@@ -399,6 +399,7 @@ void stop_play()
 	wm8904_hpout_mute(CODEC_HPOUT_MUTE_ON);
 	DMAC_ChannelDisable(DMAC_CHANNEL_1);
 	ClearBuffQueue();
+	// no need to cancle all URB, device layer will cancle all URB when inferface is changed to 0
 
 	appData.playWritePt = 0;
 	appData.dmaBuffState = PLAY_DMA_BUF_NORMAL;
@@ -413,9 +414,7 @@ void APP_Initialize ( void )
 }
 void APP_Tasks ( void )
 {  
-//    USB_DEVICE_AUDIO_TRANSFER_HANDLE usbReadHandle;
-//    USB_DEVICE_AUDIO_RESULT ret;
-    //unsigned int i;
+
             
     switch(appData.state){
         case APP_STATE_INIT :
@@ -430,12 +429,18 @@ void APP_Tasks ( void )
 		case APP_STATE_USB_CONFIGURED :
             if(appData.isConfigured == 1 && appData.usbInterface == USB_AUDIO_INTERFACE_PLAYING){
                 appData.state = APP_STATE_USB_INIT_READ;
-
+				ClearBuffQueue();
                 send_read_request();
+			
             }
             break;
         case APP_STATE_USB_INIT_READ :
             // wait for all buff queue data ready, then start player
+            if(appData.usbInterface == USB_AUDIO_INTERFACE_NON){
+				// if host change inferce very fast, we change state to wait APP_STATE_USB_CONFIGURED
+				appData.state = APP_STATE_USB_CONFIGURED;
+				break;
+			}
             if(isAllBuffQueueReady()){
                 appData.state = APP_STATE_PLAYING;
 				appData.playWritePt = APP_QUEUING_DEPTH*APP_PERIOD_SIZE;
@@ -443,6 +448,7 @@ void APP_Tasks ( void )
 				send_read_request();
                 start_player();
             }
+			
             break;
         case APP_STATE_PLAYING :
 
