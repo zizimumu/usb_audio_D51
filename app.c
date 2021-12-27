@@ -37,11 +37,14 @@
 
 #define APP_ID_FEATURE_UNIT    0x05
 #define APP_QUEUING_DEPTH  2  
-#define APP_PERIOD_SIZE (96*2*2)  //must be multi size of max endpoint
+#define APP_PERIOD_SIZE (96*2*2)  //must be multi size of max endpoint, itherwise submit URB will faild 
 
 // the I2S TX data register must +2 at 16 bit width mode
 #define I2S_DEST 0x43002832
 #define DMA_BUF_LEN (32*1024)
+
+#define UNDERRUN_LEVEL (APP_PERIOD_SIZE/2)
+
 
 
 typedef struct
@@ -76,7 +79,6 @@ typedef struct
 {
     uint8_t  isUsed;               //Next Buffer for Codec TX
     uint8_t  isDataReady;                  //Next Buffer for USB RX 
-    
     USB_DEVICE_AUDIO_TRANSFER_HANDLE usbReadHandle;
 } APP_PLAYBACK_BUFFER_QUEUE;
 
@@ -87,9 +89,6 @@ APP_DATA appData = {
 	.dmaBuffState = PLAY_DMA_BUF_NORMAL,
 
 };
-
-
-
 
 
 unsigned char dma_buff[DMA_BUF_LEN] __ALIGNED(4);  // 8K frames for 16bit stero 
@@ -103,16 +102,11 @@ APP_PLAYBACK_BUFFER_QUEUE  buf_queue[APP_QUEUING_DEPTH];
 
 
 
-
-
-
-
-
 void send_read_request(void)
 {
     unsigned int i;
     USB_DEVICE_AUDIO_RESULT ret;
-    USB_DEVICE_AUDIO_TRANSFER_HANDLE usbReadHandle;
+//    USB_DEVICE_AUDIO_TRANSFER_HANDLE usbReadHandle;
     
     for(i=0;i<APP_QUEUING_DEPTH;i++){
         if(!buf_queue[i].isUsed){
@@ -184,12 +178,12 @@ int isAllBuffQueueReady(void)
 }
 
 
-#define UNDERRUN_LEVEL (APP_PERIOD_SIZE/2)
+
 void copy2dma_buff(unsigned char *buf,unsigned int len)
 {
     unsigned int writePt;
     unsigned int readPt;
-    unsigned int cnt,free_size,gap;
+    unsigned int free_size,gap;
 	//static unsigned char dmaBuffState = PLAY_DMA_BUF_NORMAL;
     
     readPt = appData.dmaBeatSize * DMAC_ChannelGetTransferredCount(DMAC_CHANNEL_1);
@@ -273,22 +267,22 @@ int isUnderRun(void )
 
     unsigned int writePt = appData.playWritePt;
     unsigned int readPt;
-    unsigned int cnt,free_size,gap;
+    unsigned int gap;
 	//static unsigned char dmaBuffState = PLAY_DMA_BUF_NORMAL;
     
     readPt = appData.dmaBeatSize * DMAC_ChannelGetTransferredCount(DMAC_CHANNEL_1);
     
 
     if(writePt > readPt){
-        free_size = DMA_BUF_LEN - writePt + readPt;
+        ///free_size = DMA_BUF_LEN - writePt + readPt;
         gap = writePt - readPt;
     }
 	else if(writePt == readPt){
-		free_size = DMA_BUF_LEN;
+		//free_size = DMA_BUF_LEN;
 		gap = DMA_BUF_LEN;
 	}
     else{
-        free_size = readPt - writePt;
+        //free_size = readPt - writePt;
         gap = DMA_BUF_LEN - writePt + readPt;
     }
 
@@ -350,8 +344,8 @@ void  wait_dma_buff_sync()
 {
 
     unsigned int writePt = appData.playWritePt;
-    unsigned int readPt,start,timer;
-    unsigned int cnt,free_size,gap;
+    unsigned int readPt,start;
+    unsigned int gap;
 	int delay;
 	//static unsigned char dmaBuffState = PLAY_DMA_BUF_NORMAL;
 
@@ -373,7 +367,7 @@ void  wait_dma_buff_sync()
 	        gap = DMA_BUF_LEN - writePt + readPt;
 	    }
 
-		timer = SYSTICK_msCounter();
+		//timer = SYSTICK_msCounter();
 		delay = SYSTICK_msPeriodGet(start);// delay must <=5ms
 
 	}while(gap >= UNDERRUN_LEVEL/2 && delay < 5);
@@ -419,9 +413,9 @@ void APP_Initialize ( void )
 }
 void APP_Tasks ( void )
 {  
-    USB_DEVICE_AUDIO_TRANSFER_HANDLE usbReadHandle;
-    USB_DEVICE_AUDIO_RESULT ret;
-    unsigned int i;
+//    USB_DEVICE_AUDIO_TRANSFER_HANDLE usbReadHandle;
+//    USB_DEVICE_AUDIO_RESULT ret;
+    //unsigned int i;
             
     switch(appData.state){
         case APP_STATE_INIT :

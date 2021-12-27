@@ -42,10 +42,10 @@ extern void wm8904_init(void );
 
 
 
-static dmac_descriptor_registers_t pTxLinkedListDesc[2] __ALIGNED(16);
-DMA_BUF_DATA_TYPE wave_buf[1024] __ALIGNED(16);
-static unsigned int dma_cnt = 0;
-static unsigned int samples = 0;
+//static dmac_descriptor_registers_t pTxLinkedListDesc[2] __ALIGNED(16);
+//DMA_BUF_DATA_TYPE wave_buf[1024] __ALIGNED(16);
+//static unsigned int dma_cnt = 0;
+//static unsigned int samples = 0;
 
 
 /* in order to make multi dma descriptor work: 
@@ -80,7 +80,7 @@ unsigned int generate_sin(DMA_BUF_DATA_TYPE *buf, unsigned int frequency){
 //__IO  uint16_t test_pt;
 int main ( void )
 {
-    int i;
+ //   int i;
     
     //test_pt = (uint16_t)0x41000018;
     /* Initialize all modules */

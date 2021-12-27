@@ -21,6 +21,10 @@
 #ifndef APP_H
 #define APP_H
 
+#include "configuration.h"
+#include "definitions.h"
+
+
 // *****************************************************************************
 // *****************************************************************************
 // Section: Included Files
@@ -73,6 +77,11 @@ typedef enum
     USB_AUDIO_INTERFACE_CAPTURE,
 
 } USB_AUDIO_INTERFACE_SETTING;
+
+
+
+
+
 
 
 void APP_Initialize ( void );

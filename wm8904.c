@@ -102,7 +102,7 @@ void configure_codec(void)
 		printf("WM8904 not found!\n\r");
 		while(1);
 	}
-    printf("wm8904 access OK\r\n");
+    
 
 	wm8904_write_register(WM8904_BIAS_CONTROL_0, WM8904_ISEL_HP_BIAS);
 	wm8904_write_register(WM8904_VMID_CONTROL_0, WM8904_VMID_BUF_ENA |
@@ -181,11 +181,14 @@ void configure_codec(void)
 	wm8904_write_register(WM8904_ANALOGUE_OUT1_LEFT, WM8904_HPOUTL_MUTE |  WM8904_HPOUT_VU | WM8904_HPOUTL_VOL(WM8904_HP_VOL_1DB));
 	wm8904_write_register(WM8904_ANALOGUE_OUT1_RIGHT, WM8904_HPOUTR_MUTE |  WM8904_HPOUT_VU | WM8904_HPOUTR_VOL(WM8904_HP_VOL_1DB));
 	delay_ms(100);
+
+
+	printf("WM8904 configured\r\n");
 }
 
 
 void wm8904_hpout_mute(unsigned char state){
-	uint16_t data = 0;
+//	uint16_t data = 0;
 
 	if(state == CODEC_HPOUT_MUTE_OFF){
 
