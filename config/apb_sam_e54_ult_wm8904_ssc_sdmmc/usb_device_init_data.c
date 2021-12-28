@@ -279,9 +279,9 @@ const uint8_t fullSpeedConfigurationDescriptor[]=
     0x01,                            // One packet per frame.(bInterval)
     0x00,                            // Unused. (bRefresh)
 #ifdef USB_AUDIO_FEEDUP_ENABLE
-    0x00,                            // Unused. (bSynchAddress)
+    AUDIO_FEED_UP_EP,                            // Unused. (bSynchAddress)
 #else
-	AUDIO_FEED_UP_EP,
+	0x00,
 #endif
 
 

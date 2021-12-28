@@ -191,11 +191,11 @@ void send_feed(uint32_t freeSize)
 		case FEED_NORMAL_STATE:
 			appData.feedFreq = APP_DEFAULT_SAMPLE_FREQ;
 			if(freeSize >= DMA_BUF_LEN*3/4){
-				printf("fast\r\n");
+				//printf("fast\r\n");
 				appData.feedState = FEED_FAST_STATE;
 			}
 			else if(freeSize <= DMA_BUF_LEN/4){
-				printf("slow\r\n");
+				//printf("slow\r\n");
 				appData.feedState = FEED_SLOW_STATE;
 			}
 			break;
@@ -205,7 +205,9 @@ void send_feed(uint32_t freeSize)
 				appData.feedFreq = FEED_MIN_VALUE;
 			}		
 
-			if(freeSize >= DMA_BUF_LEN*3/4)
+			// the threshold should be < DMA_BUF_LEN*3/4, 
+			// otherwise feedState would switched to FEED_FAST_STATE after goto FEED_NORMAL_STATE
+			if(freeSize >= DMA_BUF_LEN*3/5)  
 				appData.feedState = FEED_NORMAL_STATE;
 				
 			break;
