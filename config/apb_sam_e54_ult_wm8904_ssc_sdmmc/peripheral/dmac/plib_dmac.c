@@ -109,6 +109,17 @@ void DMAC_Initialize( void )
     /* Update the Priority Control register */
     DMAC_REGS->DMAC_PRICTRL0 = DMAC_PRICTRL0_LVLPRI0(1) | DMAC_PRICTRL0_RRLVLEN0_Msk | DMAC_PRICTRL0_LVLPRI1(1) | DMAC_PRICTRL0_RRLVLEN1_Msk | DMAC_PRICTRL0_LVLPRI2(1) | DMAC_PRICTRL0_RRLVLEN2_Msk | DMAC_PRICTRL0_LVLPRI3(1) | DMAC_PRICTRL0_RRLVLEN3_Msk;
 
+   /***************** Configure DMA channel 0 ********************/
+   DMAC_REGS->CHANNEL[0].DMAC_CHCTRLA = DMAC_CHCTRLA_TRIGACT(2) | DMAC_CHCTRLA_TRIGSRC(76) | DMAC_CHCTRLA_THRESHOLD(0) | DMAC_CHCTRLA_BURSTLEN(0) ;
+
+   descriptor_section[0].DMAC_BTCTRL = DMAC_BTCTRL_BLOCKACT_INT | DMAC_BTCTRL_BEATSIZE_HWORD | DMAC_BTCTRL_VALID_Msk | DMAC_BTCTRL_DSTINC_Msk ;
+
+   DMAC_REGS->CHANNEL[0].DMAC_CHPRILVL = DMAC_CHPRILVL_PRILVL(0);
+
+   dmacChannelObj[0].inUse = 1;
+
+   DMAC_REGS->CHANNEL[0].DMAC_CHINTENSET = (DMAC_CHINTENSET_TERR_Msk | DMAC_CHINTENSET_TCMPL_Msk);
+
 
    /***************** Configure DMA channel 1 ********************/
    DMAC_REGS->CHANNEL[1].DMAC_CHCTRLA = DMAC_CHCTRLA_TRIGACT(2) | DMAC_CHCTRLA_TRIGSRC(78) | DMAC_CHCTRLA_THRESHOLD(0) | DMAC_CHCTRLA_BURSTLEN(0) ;
@@ -124,7 +135,6 @@ void DMAC_Initialize( void )
     /* Enable the DMAC module & Priority Level x Enable */
     DMAC_REGS->DMAC_CTRL = DMAC_CTRL_DMAENABLE_Msk | DMAC_CTRL_LVLEN0_Msk | DMAC_CTRL_LVLEN1_Msk | DMAC_CTRL_LVLEN2_Msk | DMAC_CTRL_LVLEN3_Msk;
 }
-
 /*******************************************************************************
     This function schedules a DMA transfer on the specified DMA channel.
 ********************************************************************************/

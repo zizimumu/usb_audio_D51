@@ -48,7 +48,7 @@
 #include "usb/src/usb_device_audio_local.h"
 
 
-#define debug_log(...) printf(__VA_ARGS__) 
+// #define debug_log(...) printf(__VA_ARGS__) 
 
 
 // *****************************************************************************
@@ -274,6 +274,10 @@ void _USB_DEVICE_AUDIO_SetupPacketHandler
                       command */
                     streamIntfcIndex = interfaceId - audioControlInterfaceId - 1;
 
+					//if(streamIntfcIndex == 1){
+					//	debug_log("interface 2\r\n");
+					//}
+
                     /* Get pointer to the current audio streaming interface */
                     pStreamingInterface = &(curInfCollection->streamInf[streamIntfcIndex]);
                     
@@ -309,8 +313,10 @@ void _USB_DEVICE_AUDIO_SetupPacketHandler
                         );
                         if (endpointEnableResult != USB_ERROR_NONE)
                         {
-                            debug_log("_USB_DEVICE_AUDIO_SetupPacketHandler():  Endpoint not Enabled");
+                            debug_log("_USB_DEVICE_AUDIO_SetupPacketHandler():  Endpoint 0x%x not Enabled\r\n",ep);
                         }
+						else
+							debug_log("Endpoint 0x%x Enabled\r\n",ep);
 
                         if (noOfEndpoints == 2)
                         {
@@ -334,7 +340,7 @@ void _USB_DEVICE_AUDIO_SetupPacketHandler
 	                            debug_log("_USB_DEVICE_AUDIO_SetupPacketHandler(): sync Endpoint not Enabled %d\r\n",endpointEnableResult);
 	                        }
 							else{
-								//debug_log("_USB_DEVICE_AUDIO_SetupPacketHandler(): sync Endpoint Enabled\r\n");
+								debug_log("sync Endpoint 0x%x Enabled\r\n",ep);
 							}
 
                         }
@@ -362,12 +368,20 @@ void _USB_DEVICE_AUDIO_SetupPacketHandler
                             /* Disable the Endpoint */ 
                             USB_DEVICE_EndpointDisable(usbDeviceHandle ,ep);
 
+							debug_log("Endpoint 0x%x disabled\r\n",ep);
+
 
                             if (noOfEndpoints == 2)
                             {
                                 /* If number of Endpoints is Two, then it is sure
                                 * that this alternate setting reports a Isochronous
-                                * Sync Endpoint. Disable the Sync Endpoint. */
+	                                * Sync Endpoint. Disable the Sync Endpoint. */
+	                            USB_DEVICE_IRPCancelAll(usbDeviceHandle,  pCurAlternateStng->isoSyncEp.epAddr);
+
+	                            /* Disable the Endpoint */ 
+	                            USB_DEVICE_EndpointDisable(usbDeviceHandle ,pCurAlternateStng->isoSyncEp.epAddr);
+
+								
                             }
                             curInfCollection->streamInf[streamIntfcIndex].state
                                 = USB_DEVICE_AUDIO_STRMNG_INTFC_NOT_INITIALIZED;

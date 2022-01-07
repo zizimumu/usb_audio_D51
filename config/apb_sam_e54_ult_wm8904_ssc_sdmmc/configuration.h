@@ -57,7 +57,7 @@
 
 #include "user.h"
 #include "toolchain_specifics.h"
-
+#include <stdio.h>
 // DOM-IGNORE-BEGIN
 #ifdef __cplusplus  // Provide C++ Compatibility
 
@@ -94,13 +94,40 @@ extern "C" {
 // *****************************************************************************
 // *****************************************************************************
 
-#define USB_AUDIO_FEEDUP_ENABLE 
+#define USB_AUDIO_FEEDUP_ENABLE 1
+// #define AUDIO_IN_ENABLE 1
+// #define FEED_DEBUG
+#define debug_log(...) printf(__VA_ARGS__) 
+
+
+
+#define FEED_RATE 2
+
+#define APP_QUEUING_DEPTH  2  
+
+#define APP_OUT_QUEUING_DEPTH  (APP_QUEUING_DEPTH + 1  )
+
+#define APP_REC_QUEUING_DEPTH  5
+
+
+
 #define USBD_AUDIO_MAX_FREQ 48000
+#define RECORD_FREQUENCE 48000
+#define RECORD_PERIOD_SIZE (RECORD_FREQUENCE/1000*2*2)
+
+
 #define USB_MAX_RX_SIZE                ( ( (USBD_AUDIO_MAX_FREQ * 2 * 2)/1000) *2 )
-#define FEED_DEBUG
+
 
 /* Number of Endpoints used */
+#if USB_AUDIO_FEEDUP_ENABLE && AUDIO_IN_ENABLE
+#define DRV_USBFSV1_ENDPOINTS_NUMBER                        4
+#elif USB_AUDIO_FEEDUP_ENABLE || AUDIO_IN_ENABLE
 #define DRV_USBFSV1_ENDPOINTS_NUMBER                        3
+#else
+#define DRV_USBFSV1_ENDPOINTS_NUMBER                        2
+
+#endif
 
 /* The USB Device Layer will not initialize the USB Driver */
 #define USB_DEVICE_DRIVER_INITIALIZE_EXPLICIT
@@ -126,10 +153,16 @@ extern "C" {
 /* Audio Transfer Queue Size for both read and
    write. Applicable to all instances of the
    function driver */
-#define USB_DEVICE_AUDIO_QUEUE_DEPTH_COMBINED 4
+#define USB_DEVICE_AUDIO_QUEUE_DEPTH_COMBINED (APP_OUT_QUEUING_DEPTH + APP_REC_QUEUING_DEPTH)
 
+#ifdef AUDIO_IN_ENABLE
 /* No of Audio streaming interfaces */
+#define USB_DEVICE_AUDIO_MAX_STREAMING_INTERFACES   2
+
+#else
 #define USB_DEVICE_AUDIO_MAX_STREAMING_INTERFACES   1
+
+#endif
 
 /* No of alternate settings */
 #define USB_DEVICE_AUDIO_MAX_ALTERNATE_SETTING      2

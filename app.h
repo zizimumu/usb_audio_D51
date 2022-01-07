@@ -58,6 +58,14 @@ typedef enum
 
 } APP_STATES;
 
+typedef enum{
+	APP_RECORD_INIT = 0,
+	APP_RECORD_START_CHECK,
+	APP_RECORDING,
+	APP_RECORD_END
+
+}APP_RECORD_STATES;
+
 typedef enum
 {
 
@@ -73,8 +81,8 @@ typedef enum
 
     /* Application's state machine's initial state. */
     USB_AUDIO_INTERFACE_NON=0,
-    USB_AUDIO_INTERFACE_PLAYING,
-    USB_AUDIO_INTERFACE_CAPTURE,
+    USB_AUDIO_INTERFACE_PLAYING = 1,
+    USB_AUDIO_INTERFACE_CAPTURE = 2,
 
 } USB_AUDIO_INTERFACE_SETTING;
 

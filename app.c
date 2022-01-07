@@ -32,25 +32,32 @@
 #include "wm8904.h"
 
 
-#define debug_log(...) printf(__VA_ARGS__) 
+// #define debug_log(...) printf(__VA_ARGS__) 
 
 
 #define APP_ID_FEATURE_UNIT    0x05
-#define APP_QUEUING_DEPTH  2  
+
+
+
 
 #ifdef USB_AUDIO_FEEDUP_ENABLE
 	#define	APP_PERIOD_SIZE USB_MAX_RX_SIZE
 #else 
-	#define APP_PERIOD_SIZE (96*2*2)  //must be multi size of max endpoint, itherwise submit URB will faild 
+	#define APP_PERIOD_SIZE (48*2*2)  //must be multi size of max endpoint, itherwise submit URB will faild 
 #endif
+
+
 
 #define APP_DEFAULT_SAMPLE_FREQ 48000
 // the I2S TX data register must +2 at 16 bit width mode
 #define I2S_DEST 0x43002832
+#define I2S_RX_REG 0x43002836
+
 #define DMA_BUF_LEN (32*1024)
 
 #define UNDERRUN_LEVEL (APP_PERIOD_SIZE/2)
 
+#define arraySize(x) (sizeof(x)/sizeof(x[0]))
 
 
 typedef struct
@@ -64,6 +71,7 @@ typedef struct
     /* device configured state */
     bool isConfigured;
     uint32_t usbInterface;
+	uint32_t usbInterface_alt;
     // uint32_t activeMicInterfaceAlternateSetting;
 
      uint32_t sampleFreq;
@@ -72,15 +80,18 @@ typedef struct
 	volatile unsigned char dmaBuffState;
     uint32_t peroidSize;
     uint8_t dmaBeatSize;
+	
 	uint8_t feedState;
 	uint32_t feedFreq;
+	USB_DEVICE_AUDIO_TRANSFER_HANDLE feedHandle;
+	
 	uint32_t dmaFreeSize;
 	uint32_t sof;
 	
 
     bool volMuteMode;
 	unsigned int playWritePt;
-	unsigned char *usb_buf[APP_QUEUING_DEPTH];
+	//unsigned char *usb_buf[APP_QUEUING_DEPTH];
 
 
 } APP_DATA;
@@ -90,6 +101,7 @@ typedef struct
     uint8_t  isUsed;               //Next Buffer for Codec TX
     uint8_t  isDataReady;                  //Next Buffer for USB RX 
     uint32_t dataLen;
+	unsigned char *buf;
     USB_DEVICE_AUDIO_TRANSFER_HANDLE usbReadHandle;
 } APP_PLAYBACK_BUFFER_QUEUE;
 
@@ -105,11 +117,24 @@ APP_DATA appData = {
 unsigned char dma_buff[DMA_BUF_LEN] __ALIGNED(4);  // 8K frames for 16bit stero 
 unsigned char usb_buf1[APP_PERIOD_SIZE] __ALIGNED(32);
 unsigned char usb_buf2[APP_PERIOD_SIZE] __ALIGNED(32);
+
+unsigned char usb_buf_rec1[RECORD_PERIOD_SIZE] __ALIGNED(32);
+unsigned char usb_buf_rec2[RECORD_PERIOD_SIZE] __ALIGNED(32);
+unsigned char usb_buf_rec3[RECORD_PERIOD_SIZE] __ALIGNED(32);
+unsigned char usb_buf_rec4[RECORD_PERIOD_SIZE] __ALIGNED(32);
+unsigned char usb_buf_rec5[RECORD_PERIOD_SIZE] __ALIGNED(32);
+unsigned char usb_buf_rec6[RECORD_PERIOD_SIZE] __ALIGNED(32);
+
 unsigned char usb_buf_feed[4] __ALIGNED(32);
 
 
-
+// the last one buf_queue is reservered for feed transfer
 APP_PLAYBACK_BUFFER_QUEUE  buf_queue[APP_QUEUING_DEPTH];
+APP_PLAYBACK_BUFFER_QUEUE  feed_buf_queue;
+
+// the last one rec_buf_queue is reservered for overrun situation
+APP_PLAYBACK_BUFFER_QUEUE  rec_buf_queue[APP_REC_QUEUING_DEPTH+1];
+
 
 #ifdef FEED_DEBUG
 	unsigned short debug_buf[256];
@@ -134,7 +159,7 @@ void send_read_request(void)
 		
             ret = USB_DEVICE_AUDIO_Read(USB_DEVICE_INDEX_0, 
                           &buf_queue[i].usbReadHandle, 
-                          1, appData.usb_buf[i], 
+                          1, buf_queue[i].buf, 
                           appData.peroidSize);
 
             if(ret != USB_DEVICE_AUDIO_RESULT_OK){
@@ -173,8 +198,10 @@ void send_read_request(void)
 
 void send_feed(uint32_t freeSize)
 {
-	USB_DEVICE_AUDIO_TRANSFER_HANDLE handle;
+	// USB_DEVICE_AUDIO_TRANSFER_HANDLE handle;
 	USB_DEVICE_AUDIO_RESULT ret;
+	APP_PLAYBACK_BUFFER_QUEUE *buf;
+	static unsigned int cnt =0 ;
 
 
 #ifdef	FEED_DEBUG
@@ -185,25 +212,31 @@ void send_feed(uint32_t freeSize)
 
 #endif
 
+	buf = &feed_buf_queue;
+
+	// we only send feed when last transfer is completed
+	if(buf->isUsed != 0)
+		return;
+		
 
 	switch(appData.feedState){
 
 		case FEED_NORMAL_STATE:
 			appData.feedFreq = APP_DEFAULT_SAMPLE_FREQ;
 			if(freeSize >= DMA_BUF_LEN*3/4){
-				//printf("fast\r\n");
+				printf("fast\r\n");
 				appData.feedState = FEED_FAST_STATE;
 			}
 			else if(freeSize <= DMA_BUF_LEN/4){
-				//printf("slow\r\n");
+				printf("slow\r\n");
 				appData.feedState = FEED_SLOW_STATE;
 			}
 			break;
 		case FEED_SLOW_STATE:
-			appData.feedFreq -= SLOW_FEED_STEP; 
-			if(appData.feedFreq <= FEED_MIN_VALUE) {
+			//appData.feedFreq -= SLOW_FEED_STEP; 
+			//if(appData.feedFreq <= FEED_MIN_VALUE) {
 				appData.feedFreq = FEED_MIN_VALUE;
-			}		
+			//}		
 
 			// the threshold should be < DMA_BUF_LEN*3/4, 
 			// otherwise feedState would switched to FEED_FAST_STATE after goto FEED_NORMAL_STATE
@@ -212,10 +245,10 @@ void send_feed(uint32_t freeSize)
 				
 			break;
 		case FEED_FAST_STATE:
-			appData.feedFreq += SLOW_FEED_STEP; 
-			if(appData.feedFreq >= FEED_MAX_VALUE) {
+			//appData.feedFreq += SLOW_FEED_STEP; 
+			//if(appData.feedFreq >= FEED_MAX_VALUE) {
 				appData.feedFreq = FEED_MAX_VALUE;
-			}
+			//}
 			// to avoid too much data buffered in DMA, the free size should not be too small
 			if(freeSize <= DMA_BUF_LEN/2)
 				appData.feedState = FEED_NORMAL_STATE;
@@ -227,14 +260,25 @@ void send_feed(uint32_t freeSize)
 	};
 
 
-	FEED_FREQ_2_BUFF(usb_buf_feed,appData.feedFreq);
 	
-	ret = USB_DEVICE_AUDIO_Write(USB_DEVICE_INDEX_0, &handle, 1, usb_buf_feed, 3);
 	
-	if(ret != USB_DEVICE_AUDIO_RESULT_OK){
-		//debug_log("send_feed error %d\r\n",ret);
 
-	}		   
+	//if(buf->isUsed == 0){
+		FEED_FREQ_2_BUFF(buf->buf,appData.feedFreq);
+
+		buf->isUsed = 1;
+		ret = USB_DEVICE_AUDIO_Write(USB_DEVICE_INDEX_0, &buf->usbReadHandle, 1, buf->buf, 3);
+		
+		if(ret != USB_DEVICE_AUDIO_RESULT_OK){
+			debug_log("send_feed error %d\r\n",ret);
+			buf->isUsed = 0;
+		}
+
+		//if(cnt % 250 == 0)
+		//	printf("feed cnt %d\r\n",cnt);
+
+		//cnt++;
+	//}		   
 
 
 }
@@ -255,13 +299,47 @@ int isAllBuffQueueReady(void)
  {
 	 unsigned int i;
 	 
-	 //for(i=0;i<APP_QUEUING_DEPTH;i++){
-	//	 buf_queue[i].isDataReady = 0;
-	//	 buf_queue[i].isUsed = 0;
+	 for(i=0;i<arraySize(buf_queue);i++){
+		 buf_queue[i].isDataReady = 0;
+		 buf_queue[i].isUsed = 0;
+	 	buf_queue[i].dataLen = 0;
 
-	 //}
+	 }
 
-	 memset(buf_queue,0,sizeof(buf_queue));
+	 feed_buf_queue.isDataReady = 0;
+	 feed_buf_queue.isUsed = 0;
+	 feed_buf_queue.dataLen = 0;
+
+	 //memset(buf_queue,0,sizeof(buf_queue));
+
+ }
+ void ClearRecBuffQueue(void)
+ {
+	 unsigned int i;
+	 
+	 for(i=0;i<APP_REC_QUEUING_DEPTH;i++){
+		 rec_buf_queue[i].isDataReady = 0;
+		 rec_buf_queue[i].isUsed = 0;
+
+	 }
+
+
+ }
+ void InitRecBuffQueue(void)
+ {
+	 unsigned int i;
+	 
+	 for(i=0;i<APP_REC_QUEUING_DEPTH;i++){
+		 rec_buf_queue[i].isDataReady = 0;
+		 rec_buf_queue[i].isUsed = 0;
+
+	 }
+	rec_buf_queue[0].buf = usb_buf_rec1;
+	 rec_buf_queue[1].buf = usb_buf_rec2;
+	 rec_buf_queue[2].buf = usb_buf_rec3;
+	 rec_buf_queue[3].buf = usb_buf_rec4;
+	 rec_buf_queue[4].buf = usb_buf_rec5;
+	 rec_buf_queue[5].buf = usb_buf_rec5;
 
  }
 
@@ -286,6 +364,26 @@ int isAllBuffQueueReady(void)
 	
 }
 
+
+ void stop_i2s_rx(void )
+{
+	unsigned int reg = I2S_REGS->I2S_CTRLA;
+
+	reg &= ~(1 << 5);
+
+	I2S_REGS->I2S_CTRLA = reg;
+	
+}
+
+ void start_i2s_rx(void )
+{
+	unsigned int reg = I2S_REGS->I2S_CTRLA;
+
+	reg |= (1 << 5);
+
+	I2S_REGS->I2S_CTRLA = reg;
+	
+}
 
 
 uint32_t copy2dma_buff(unsigned char *buf,unsigned int len)
@@ -416,21 +514,21 @@ void process_read_data(void )
         if(buf_queue[i].isDataReady){
 
             
-            appData.dmaFreeSize = copy2dma_buff(appData.usb_buf[i],buf_queue[i].dataLen);
+            appData.dmaFreeSize = copy2dma_buff(buf_queue[i].buf,buf_queue[i].dataLen);
             
             ret = USB_DEVICE_AUDIO_Read(USB_DEVICE_INDEX_0, 
                           &buf_queue[i].usbReadHandle, 
-                          1, appData.usb_buf[i], 
+                          1, buf_queue[i].buf, 
                           appData.peroidSize); //48 Samples
 
             if(ret != USB_DEVICE_AUDIO_RESULT_OK){
                 buf_queue[i].isUsed = 0;
                 break;
             }          
-            else{
-                buf_queue[i].isUsed = 1;
-                buf_queue[i].isDataReady = 0;
-            }
+
+            buf_queue[i].isUsed = 1;
+            buf_queue[i].isDataReady = 0;
+
 			
 			//if((rx_cnt % 250) == 0)
 			//	printf("rx cnt %d\r\n",rx_cnt);
@@ -440,17 +538,65 @@ void process_read_data(void )
 
 #ifdef USB_AUDIO_FEEDUP_ENABLE
 
-	//appData.sampleFreq = APP_DEFAULT_SAMPLE_FREQ;
 
-	if(SYSTICK_msPeriodGet(timer) >= 6) { // host will read feed data per 8ms
-		send_feed(appData.dmaFreeSize);
-		timer = SYSTICK_msCounter();
-	}
+
+	send_feed(appData.dmaFreeSize);
+
+	//if(SYSTICK_msPeriodGet(timer) >= (1<< FEED_RATE -1) ) { // host will read feed data per 8ms
+	//	send_feed(appData.dmaFreeSize);
+	//	timer = SYSTICK_msCounter();
+	//}
 
 #endif
 
 }
 
+int find_valide_rec_buff()
+{
+	int i;
+	
+	for(i=0;i<APP_REC_QUEUING_DEPTH;i++){
+
+		if(!rec_buf_queue[i].isDataReady){
+			return i;
+		}
+
+
+	}
+	return -1;
+}
+
+void process_record()
+{
+
+	int i;
+	USB_DEVICE_AUDIO_RESULT ret;
+	static unsigned int rec_cnt = 0;
+	
+	for(i=0;i<APP_REC_QUEUING_DEPTH;i++){
+
+		if(rec_buf_queue[i].isDataReady && rec_buf_queue[i].isUsed == 0){
+
+			rec_buf_queue[i].isUsed = 1;
+			ret = USB_DEVICE_AUDIO_Write(USB_DEVICE_INDEX_0, 
+							  &rec_buf_queue[i].usbReadHandle, 
+							  2, rec_buf_queue[i].buf, 
+							  RECORD_PERIOD_SIZE);
+
+			if(ret != USB_DEVICE_AUDIO_RESULT_OK){
+				debug_log("write error %d, SCHAR_MIN %d\r\n",(int)ret,(int)SCHAR_MIN);
+			}				  
+			
+			if(rec_cnt % 1000 == 0)
+				printf("send %d\r\n",rec_cnt);
+			rec_cnt++;
+		}
+
+
+	}	 
+
+
+}
 void dma_callback(DMAC_TRANSFER_EVENT status, uintptr_t context) {
 
 	static unsigned int dma_cnt = 0;
@@ -459,6 +605,38 @@ void dma_callback(DMAC_TRANSFER_EVENT status, uintptr_t context) {
 	//if((dma_cnt % 6) == 0)
 	//	debug_log("dma triggle %d\r\n",dma_cnt);
 }
+
+void dma_callback_record(DMAC_TRANSFER_EVENT status, uintptr_t context)
+{
+	int index;
+	static unsigned int dma_index = 0;
+
+
+	rec_buf_queue[dma_index].isDataReady = 1;
+	//rec_buf_queue[x].isUsed = 0;
+
+	
+	index = find_valide_rec_buff();
+	if(index == -1){
+		index = APP_REC_QUEUING_DEPTH ; //reserver last buff for overrun
+		//debug_log("rec over\r\n");
+
+	}
+
+	dma_index = index;
+
+	//rec_buf_queue[index].isDataReady = 0;
+    DMAC_ChannelTransfer(DMAC_CHANNEL_0,(void *)I2S_RX_REG, (void *) rec_buf_queue[index].buf,RECORD_PERIOD_SIZE);
+	//DMAC_ChannelTransfer(DMAC_CHANNEL_0,(void *)I2S_RX_REG ,(void *) &dma_buff[0],RECORD_PERIOD_SIZE);
+	//DMAC_ChannelTransfer(DMAC_CHANNEL_0,(void *)I2S_RX_REG ,(void *) &dma_buff[0],96);
+
+	
+	//if( (dma_cnt % 1000) == 0)
+	//	printf("dma_cnt %d\r\n",dma_cnt);
+
+	//dma_cnt++;
+}
+
 
 
 void  wait_dma_buff_sync()
@@ -475,7 +653,7 @@ void  wait_dma_buff_sync()
 	delay = 0;
 
 	// the audio data buffered less than DMA_BUF_LEN/2
-	time_out = 1000 / (APP_DEFAULT_SAMPLE_FREQ / DMA_BUF_LEN/4) / 2;
+	time_out = 1000 / (APP_DEFAULT_SAMPLE_FREQ / (DMA_BUF_LEN/4) ) / 2;
 
 	do{
 	    readPt = appData.dmaBeatSize * DMAC_ChannelGetTransferredCount(DMAC_CHANNEL_1);
@@ -531,13 +709,80 @@ void stop_play()
 	debug_log("stopping play\r\n");
 }
 
+void start_record()
+{
+	ClearRecBuffQueue();
+
+	DMAC_ChannelCallbackRegister(DMAC_CHANNEL_0, dma_callback_record, 0);
+	//DMAC_ChannelTransfer(DMAC_CHANNEL_0,(void *)I2S_RX_REG ,(void *) &dma_buff[0],96);
+	DMAC_ChannelTransfer(DMAC_CHANNEL_0,(void *)I2S_RX_REG, (void *) rec_buf_queue[0].buf,RECORD_PERIOD_SIZE);
+	start_i2s_rx();	
+}
+
+void stop_record()
+{
+	stop_i2s_rx();	
+	DMAC_ChannelDisable(DMAC_CHANNEL_0);
+}
+
+void APP_RecordTasks()
+{
+	static int state = APP_RECORD_INIT;
+	switch(state){
+		case APP_RECORD_INIT:
+			InitRecBuffQueue();
+			state = APP_RECORD_START_CHECK;
+			break;
+	
+		case APP_RECORD_START_CHECK :
+			if(appData.isConfigured == 1 && \
+				appData.usbInterface == USB_AUDIO_INTERFACE_CAPTURE && \
+				appData.usbInterface_alt == 1){
+
+				state = APP_RECORDING;
+
+				start_record();
+				debug_log("recording\r\n");
+			}
+
+
+				
+		break;
+		case APP_RECORDING:
+			if(appData.isConfigured == 1 && \
+				appData.usbInterface == USB_AUDIO_INTERFACE_CAPTURE && \
+				appData.usbInterface_alt == 0){
+				
+				state = APP_RECORD_START_CHECK;
+				
+				stop_record();
+				debug_log("record  stopping\r\n");
+
+				break;
+			
+			
+			}
+			process_record();
+
+
+		
+		break;
+		
+		default :
+		break;
+
+	};
+}
 
 void APP_Initialize ( void )
 {
 
 }
-void APP_Tasks ( void )
+
+
+void APP_PlayTasks ( void )
 {  
+	static unsigned int timer = 0;
 #ifdef FEED_DEBUG
 		if(uart_wr	!= uart_rd){
 			printf("%d\r\n",debug_buf[uart_rd]);
@@ -552,43 +797,58 @@ void APP_Tasks ( void )
         case APP_STATE_INIT :
 			usb_open();
 			appData.state = APP_STATE_USB_CONFIGURED;
-			appData.usb_buf[0] = usb_buf1;
-			appData.usb_buf[1] = usb_buf2;
+			buf_queue[0].buf = usb_buf1;
+			buf_queue[1].buf = usb_buf2;
+			feed_buf_queue.buf = usb_buf_feed; // for feed transfer
+
+			
             appData.peroidSize = APP_PERIOD_SIZE;
 			appData.dmaBeatSize = 2;	
 			appData.sampleFreq = APP_DEFAULT_SAMPLE_FREQ;
 			
 		break;
 		case APP_STATE_USB_CONFIGURED :
-            if(appData.isConfigured == 1 && appData.usbInterface == USB_AUDIO_INTERFACE_PLAYING){
+            if(appData.isConfigured == 1 && \
+				appData.usbInterface == USB_AUDIO_INTERFACE_PLAYING && \
+				appData.usbInterface_alt == 1){
                 appData.state = APP_STATE_USB_INIT_READ;
 				appData.feedState = FEED_NORMAL_STATE;
 				appData.feedFreq = APP_DEFAULT_SAMPLE_FREQ;
 				appData.dmaFreeSize = DMA_BUF_LEN/2;
-				ClearBuffQueue();
-                send_read_request();
+
+				timer = SYSTICK_msCounter();
+
 			
-            }
+            }		
             break;
         case APP_STATE_USB_INIT_READ :
             // wait for all buff queue data ready, then start player
-            if(appData.usbInterface == USB_AUDIO_INTERFACE_NON){
+            if(appData.usbInterface == USB_AUDIO_INTERFACE_PLAYING && appData.usbInterface_alt == 0){
 				// if host change inferce very fast, we change state to wait APP_STATE_USB_CONFIGURED
 				appData.state = APP_STATE_USB_CONFIGURED;
 				break;
 			}
-            if(isAllBuffQueueReady()){
+			// to void quick switch from host, we wait 2ms
+			if(SYSTICK_msPeriodGet(timer) >= 2){
+            //if(isAllBuffQueueReady()){
                 appData.state = APP_STATE_PLAYING;
 				appData.playWritePt = APP_QUEUING_DEPTH*APP_PERIOD_SIZE;
+				memset(dma_buff,0,APP_QUEUING_DEPTH*APP_PERIOD_SIZE);
 
-				send_read_request();
+				
+				ClearBuffQueue();
+				_USB_DEVICE_AUDIO_clear();
+                send_read_request();
+
+				//send_read_request();
                 start_player();
-            }
+            //}
+			}
 			
             break;
         case APP_STATE_PLAYING :
 
-			if(appData.usbInterface == USB_AUDIO_INTERFACE_NON){
+			if(appData.usbInterface == USB_AUDIO_INTERFACE_PLAYING && appData.usbInterface_alt == 0){
 
 				stop_play();
 				appData.state = APP_STATE_USB_CONFIGURED;
@@ -596,9 +856,10 @@ void APP_Tasks ( void )
 				//stop_i2s_tx();
 				//debug_log("pausing play\r\n");
 			}
-			else if(appData.usbInterface == USB_AUDIO_INTERFACE_PLAYING)
+			else if(appData.usbInterface == USB_AUDIO_INTERFACE_PLAYING){
             	process_read_data();
-			else{}
+			}
+
 			break;
 			
 		default :
@@ -608,16 +869,65 @@ void APP_Tasks ( void )
 
 }
 
+void APP_Tasks()
+{
+
+	//InitRecBuffQueue();
+	//start_record();
+	//while(1);
+	
+	
+
+	APP_PlayTasks();
+#ifdef AUDIO_IN_ENABLE
+
+	APP_RecordTasks();
+
+#endif
+
+}
+
+
+
 static void APP_SetUSBReadBufferReady(USB_DEVICE_AUDIO_TRANSFER_HANDLE handle,uint32_t len)
 {
     int i=0;
-    for (i=0; i<APP_QUEUING_DEPTH; i++)
+    for (i=0; i<arraySize(buf_queue); i++)
     {
         if (buf_queue[i].usbReadHandle == handle)
         {
             buf_queue[i].isDataReady = 1;
 			buf_queue[i].isUsed = 0;
 			buf_queue[i].dataLen = len;
+            break;
+        }
+    }
+}
+
+static void APP_CheckFeedTrans(USB_DEVICE_AUDIO_TRANSFER_HANDLE handle,uint32_t len)
+{
+
+    if (feed_buf_queue.usbReadHandle == handle)
+    {
+        feed_buf_queue.isDataReady = 1;
+		feed_buf_queue.isUsed = 0;
+		feed_buf_queue.dataLen = len;
+
+    }
+
+}
+
+
+static void APP_SetUSBWrBufferReady(USB_DEVICE_AUDIO_TRANSFER_HANDLE handle,uint32_t len)
+{
+    int i=0;
+    for (i=0; i<APP_REC_QUEUING_DEPTH; i++)
+    {
+        if (rec_buf_queue[i].usbReadHandle == handle)
+        {
+            rec_buf_queue[i].isDataReady = 0;
+			rec_buf_queue[i].isUsed = 0;
+			rec_buf_queue[i].dataLen = len;
             break;
         }
     }
@@ -645,9 +955,10 @@ void APP_USBDeviceAudioEventHandler(USB_DEVICE_AUDIO_INDEX iAudio,
                 /* We have received a request from USB host to change the Interface-
                    Alternate setting.*/
                 interfaceInfo = (USB_DEVICE_AUDIO_EVENT_DATA_INTERFACE_SETTING_CHANGED *)pData;
-                appData.usbInterface = interfaceInfo->interfaceAlternateSetting; 
+                appData.usbInterface = interfaceInfo->interfaceNumber; 
+				appData.usbInterface_alt = interfaceInfo->interfaceAlternateSetting;
                         
-                debug_log("audio interface setted %d\r\n",interfaceInfo->interfaceAlternateSetting);
+                debug_log("audio interface %d setted %d\r\n",interfaceInfo->interfaceNumber, interfaceInfo->interfaceAlternateSetting);
             }
             break;
 
@@ -663,6 +974,13 @@ void APP_USBDeviceAudioEventHandler(USB_DEVICE_AUDIO_INDEX iAudio,
 
             case USB_DEVICE_AUDIO_EVENT_WRITE_COMPLETE:
             {
+				readEventData = (USB_DEVICE_AUDIO_EVENT_DATA_READ_COMPLETE *)pData;
+
+				// check feed transfer is completed
+				APP_CheckFeedTrans(readEventData->handle,readEventData->length);
+				APP_SetUSBWrBufferReady(readEventData->handle,readEventData->length);
+
+			
             }
             break;
             
