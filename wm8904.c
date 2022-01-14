@@ -158,10 +158,19 @@ void configure_codec(void)
 						WM8904_DACL_ENA | WM8904_DACR_ENA | 
 						WM8904_ADCL_ENA | WM8904_ADCR_ENA);
 	delay_ms(5);
+
+	/*
+	wm8904_write_register(WM8904_MIC_BIAS_CONTROL_0, 0x01); // enable MIC bias
+	wm8904_write_register(WM8904_ANALOGUE_LEFT_INPUT_0, WM8904_LIN_VOL(0x18));
+	wm8904_write_register(WM8904_ANALOGUE_RIGHT_INPUT_0, WM8904_RIN_VOL(0x18));
+	*/
+	
+	// just for line in
 	wm8904_write_register(WM8904_ANALOGUE_LEFT_INPUT_0, WM8904_LIN_VOL(0x10));
 	wm8904_write_register(WM8904_ANALOGUE_RIGHT_INPUT_0, WM8904_RIN_VOL(0x10));
-	wm8904_write_register(WM8904_ANALOGUE_HP_0, 
-						WM8904_HPL_ENA | WM8904_HPR_ENA);
+
+	
+	wm8904_write_register(WM8904_ANALOGUE_HP_0, WM8904_HPL_ENA | WM8904_HPR_ENA);
 	wm8904_write_register(WM8904_ANALOGUE_HP_0, 
 						WM8904_HPL_ENA_DLY | WM8904_HPL_ENA |
 						WM8904_HPR_ENA_DLY | WM8904_HPR_ENA);

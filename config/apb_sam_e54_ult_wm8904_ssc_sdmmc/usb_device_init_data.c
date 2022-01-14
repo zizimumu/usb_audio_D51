@@ -51,8 +51,8 @@
  **************************************************/
 	const USB_DEVICE_AUDIO_INIT audioInit0 =
 {
-	.queueSizeRead = APP_OUT_QUEUING_DEPTH,
-	.queueSizeWrite = APP_REC_QUEUING_DEPTH
+	.queueSizeRead = APP_OUT_IRP_QUEUING_DEPTH,
+	.queueSizeWrite = APP_REC_IRP_QUEUING_DEPTH
 };
 
 
@@ -122,12 +122,10 @@ const USB_DEVICE_DESCRIPTOR deviceDescriptor =
 
 #define AUDIO_FORMAT_TYPE_I                           0x01
 #define AUDIO_FORMAT_TYPE_III                         0x03
-#define AUDIO_CONTROL_MUTE                            0x0001
+#define AUDIO_CONTROL_MUTE                            0x01
 
 
-#define MIC_IN_TERMINAL_ID                            3
-#define MIC_FU_ID                                     6
-#define MIC_OUT_TERMINAL_ID                           7
+
 
 
 #ifdef USB_AUDIO_FEEDUP_ENABLE 
@@ -215,15 +213,17 @@ const uint8_t fullSpeedConfigurationDescriptor[]=
                                      * AudioControl interface. (baInterfaceNr(1))*/
 #endif
 
+
+
     /* USB Speaker Input Terminal Descriptor */
     0x0C,                           // Size of the descriptor, in bytes (bLength)
     USB_AUDIO_CS_INTERFACE,    		// CS_INTERFACE Descriptor Type (bDescriptorType)
     USB_AUDIO_INPUT_TERMINAL,	    // INPUT_TERMINAL descriptor subtype (bDescriptorSubtype)
-    0x01,          				    // ID of this Terminal.(bTerminalID)
-    0x01,0x01,                      // (wTerminalType)
+    SPEAKER_INPUT_ID,          				    // ID of this Terminal.(bTerminalID)
+    0x01,0x01,                      // (wTerminalType),usb streaming
     0x00,                           // No association (bAssocTerminal)
     0x02,                           // Two Channels (bNrChannels)
-    0x03,0x00,                      // (wChannelConfig)
+    0x03,0x00,                      // (wChannelConfig): Left Front and Right Front
     0x00,                           // Unused.(iChannelNames)
     0x00,                           // Unused. (iTerminal)
 
@@ -232,8 +232,8 @@ const uint8_t fullSpeedConfigurationDescriptor[]=
     0x0A,                           // Size of the descriptor, in bytes (bLength)
     USB_AUDIO_CS_INTERFACE,    		// CS_INTERFACE Descriptor Type (bDescriptorType)
     USB_AUDIO_FEATURE_UNIT,         // FEATURE_UNIT  descriptor subtype (bDescriptorSubtype)
-    0x05,            				// ID of this Unit ( bUnitID  ).
-    0x01,          					// Input terminal is connected to this unit(bSourceID)
+    SPEAKER_FEATURE_ID,            				// ID of this Unit ( bUnitID  ).
+    SPEAKER_INPUT_ID,          					// Input terminal is connected to this unit(bSourceID)
     0x01,                           // (bControlSize) //was 0x03
     0x01,                           // (bmaControls(0)) Controls for Master Channel
     0x00,                           // (bmaControls(1)) Controls for Channel 1
@@ -245,10 +245,10 @@ const uint8_t fullSpeedConfigurationDescriptor[]=
     0x09,                           // Size of the descriptor, in bytes (bLength)
     USB_AUDIO_CS_INTERFACE,    		// CS_INTERFACE Descriptor Type (bDescriptorType)
     USB_AUDIO_OUTPUT_TERMINAL,      // OUTPUT_TERMINAL  descriptor subtype (bDescriptorSubtype)
-    0x02,          					// ID of this Terminal.(bTerminalID)
-    0x01,0x03,                      // (wTerminalType)See USB Audio Terminal Types.
+    SPEAKER_OUTPUT_ID,          	// ID of this Terminal.(bTerminalID)
+    0x01,0x03,                      // (wTerminalType)See USB Audio Terminal Types: 03 -> speaker
     0x00,                           // No association (bAssocTerminal)
-    0x05,             				// (bSourceID)
+    SPEAKER_FEATURE_ID,             // (bSourceID)
     0x00,                           // Unused. (iTerminal)
 
 
@@ -263,9 +263,11 @@ const uint8_t fullSpeedConfigurationDescriptor[]=
 		0x01,								  /* wTerminalType Generic Microphone	0x0201 */
 		0x02,
 		0x00,								  /* bAssocTerminal */
-		0x01,								  /* bNrChannels */
-		0x00,								  /* wChannelConfig 0x0000	Mono */
+		0x02,								  /* bNrChannels 1*/
+		
+		0x03,								  /* wChannelConfig Left Front */
 		0x00,
+		
 		0x00,								  /* iChannelNames */
 		0x00,								  /* iTerminal */
 		/* 12 byte*/
@@ -452,7 +454,7 @@ const uint8_t fullSpeedConfigurationDescriptor[]=
 	  USB_DESCRIPTOR_ENDPOINT, 		/* bDescriptorType */
 	  AUDIO_IN_EP,							/* bEndpointAddress 1 In endpoint*/
 	  USB_ENDPOINT_TYPE_ISOCHRONOUS, //USB_ENDPOINT_TYPE_ISOCHRONOUS,								  /* bmAttributes: Isochrnous | Asynchronous */ 
-	  (uint8_t)(RECORD_PERIOD_SIZE & 0xff),(uint8_t)((RECORD_PERIOD_SIZE>>8)&0xff),
+	  (uint8_t)(RECORD_PACKET_SISE & 0xff),(uint8_t)((RECORD_PACKET_SISE>>8)&0xff),
 	
 	  0x01, 								/* bInterval must be 1*/
 	  0x00, 								/* bRefresh must be 0 */

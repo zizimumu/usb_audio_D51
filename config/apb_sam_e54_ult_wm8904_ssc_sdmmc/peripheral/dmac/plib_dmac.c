@@ -46,6 +46,9 @@
 
 #include "plib_dmac.h"
 #include "interrupts.h"
+#include "system/int/sys_int.h"
+
+
 
 // *****************************************************************************
 // *****************************************************************************
@@ -229,10 +232,12 @@ uint16_t DMAC_ChannelGetTransferredCount( DMAC_CHANNEL channel )
 {
 
 	uint32_t id;
-	uint16_t transferredCount = descriptor_section[channel].DMAC_BTCNT;
-    transferredCount -= _write_back_section[channel].DMAC_BTCNT;
+	uint16_t transferredCount;// = descriptor_section[channel].DMAC_BTCNT;
+    //transferredCount -= _write_back_section[channel].DMAC_BTCNT;
+
+	SYS_INT_Disable();
 	
-	id = (DMAC_REGS->DMAC_ACTIVE&0x1f00) >> 8 ;
+	id = (DMAC_REGS->DMAC_ACTIVE&0x00001f00) >> 8 ;
 	
 	if(id == channel){
 		transferredCount = descriptor_section[channel].DMAC_BTCNT;
@@ -244,6 +249,8 @@ uint16_t DMAC_ChannelGetTransferredCount( DMAC_CHANNEL channel )
 		transferredCount -= _write_back_section[channel].DMAC_BTCNT;
 
 	}
+
+	SYS_INT_Enable();
 	
     return(transferredCount);
 }

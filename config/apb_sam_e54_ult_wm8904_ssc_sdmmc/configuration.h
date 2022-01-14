@@ -95,8 +95,10 @@ extern "C" {
 // *****************************************************************************
 
 #define USB_AUDIO_FEEDUP_ENABLE 1
-// #define AUDIO_IN_ENABLE 1
-// #define FEED_DEBUG
+#define AUDIO_IN_ENABLE 1
+// #define FEED_DEBUG 1
+// #define RECORD_DEBUG 1
+
 #define debug_log(...) printf(__VA_ARGS__) 
 
 
@@ -105,15 +107,26 @@ extern "C" {
 
 #define APP_QUEUING_DEPTH  2  
 
-#define APP_OUT_QUEUING_DEPTH  (APP_QUEUING_DEPTH + 1  )
+// APP_OUT_IRP_QUEUING_DEPTH should > APP_QUEUING_DEPTH
+#define APP_OUT_IRP_QUEUING_DEPTH  (APP_QUEUING_DEPTH + 1)
 
-#define APP_REC_QUEUING_DEPTH  5
+#define APP_REC_IRP_QUEUING_DEPTH  5
 
+
+#define SPEAKER_INPUT_ID 0x1
+#define SPEAKER_FEATURE_ID 0x5
+#define SPEAKER_OUTPUT_ID 0x3
+
+
+#define MIC_IN_TERMINAL_ID   0x2
+#define MIC_FU_ID            0x6
+#define MIC_OUT_TERMINAL_ID  0x4
 
 
 #define USBD_AUDIO_MAX_FREQ 48000
 #define RECORD_FREQUENCE 48000
 #define RECORD_PERIOD_SIZE (RECORD_FREQUENCE/1000*2*2)
+#define RECORD_PACKET_SISE (RECORD_PERIOD_SIZE)
 
 
 #define USB_MAX_RX_SIZE                ( ( (USBD_AUDIO_MAX_FREQ * 2 * 2)/1000) *2 )
@@ -153,7 +166,8 @@ extern "C" {
 /* Audio Transfer Queue Size for both read and
    write. Applicable to all instances of the
    function driver */
-#define USB_DEVICE_AUDIO_QUEUE_DEPTH_COMBINED (APP_OUT_QUEUING_DEPTH + APP_REC_QUEUING_DEPTH)
+   // the last queue is reserverd for feed transfer
+#define USB_DEVICE_AUDIO_QUEUE_DEPTH_COMBINED (APP_OUT_IRP_QUEUING_DEPTH + APP_REC_IRP_QUEUING_DEPTH+1)
 
 #ifdef AUDIO_IN_ENABLE
 /* No of Audio streaming interfaces */
