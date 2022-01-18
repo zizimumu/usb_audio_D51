@@ -123,7 +123,7 @@ unsigned char usb_buf1[APP_PERIOD_SIZE] __ALIGNED(32);
 unsigned char usb_buf2[APP_PERIOD_SIZE] __ALIGNED(32);
 
 static dmac_descriptor_registers_t pTxLinkedListDesc __ALIGNED(16);
-static dmac_descriptor_registers_t pRxLinkedListDesc[5] __ALIGNED(16);
+static dmac_descriptor_registers_t pRxLinkedListDesc[APP_REC_IRP_QUEUING_DEPTH] __ALIGNED(16);
 
 
 unsigned char usb_buf_rec1[RECORD_PERIOD_SIZE] __ALIGNED(32);
@@ -225,16 +225,6 @@ void send_feed(uint32_t free)
 		all the operation below make write point in front of read point 
 	*/
 
-
-
-#ifdef	FEED_DEBUG
-	debug_buf[uart_wr] = freeSize;
-	uart_wr++;
-	if(uart_wr >= 256)
-		uart_wr = 0;
-
-#endif
-
 	buf = &feed_buf_queue;
 
 	// we only send feed when last transfer is completed
@@ -255,18 +245,37 @@ void send_feed(uint32_t free)
         freeSize = readPt - writePt;
     }
 
+
+#ifdef	FEED_DEBUG
+		debug_buf[uart_wr] = freeSize;
+		uart_wr++;
+		if(uart_wr >= 256)
+			uart_wr = 0;
+	
+#endif
+
+
+
 	switch(appData.feedState){
 
 		case FEED_NORMAL_STATE:
-			appData.feedFreq = APP_DEFAULT_SAMPLE_FREQ;
+			//appData.feedFreq = APP_DEFAULT_SAMPLE_FREQ;
 			if(freeSize >= DMA_BUF_LEN*3/4){
 				printf("fast,free %d\r\n",freeSize);
 				appData.feedState = FEED_FAST_STATE;
+
 			}
 			else if(freeSize <= DMA_BUF_LEN/4){
 				printf("slow, free %d\r\n",freeSize);
 				appData.feedState = FEED_SLOW_STATE;
+
 			}
+			else{
+				// feed freq = 7/8*F + (freeSize - 1/4*DMA_BUF_LEN)/ (0.5*DMA_BUF_LEN)  * 3/8*F
+				appData.feedFreq =(uint32_t)( APP_DEFAULT_SAMPLE_FREQ *(0.875+ (2*(float)freeSize/DMA_BUF_LEN - 0.5)*0.375 ) );	
+				
+			}
+			
 			break;
 		case FEED_SLOW_STATE:
 			//appData.feedFreq -= SLOW_FEED_STEP; 
@@ -703,6 +712,8 @@ void dma_callback(DMAC_TRANSFER_EVENT status, uintptr_t context) {
 
 void dma_callback_record(DMAC_TRANSFER_EVENT status, uintptr_t context)
 {
+
+#if 0
 	int index;
 	unsigned char dma_index;
 
@@ -710,11 +721,6 @@ void dma_callback_record(DMAC_TRANSFER_EVENT status, uintptr_t context)
 	rec_buf_queue[dma_index].isDataReady = 1;
 	//rec_buf_queue[x].isUsed = 0;
 	add_queue(dma_index);
-
-
-
-
-	
 
 	index = find_valide_rec_buff();
 	if(index == -1){
@@ -727,7 +733,11 @@ void dma_callback_record(DMAC_TRANSFER_EVENT status, uintptr_t context)
 
     DMAC_ChannelTransfer(DMAC_CHANNEL_0,(void *)I2S_RX_REG, (void *) rec_buf_queue[index].buf,RECORD_PERIOD_SIZE);
 
-
+#endif
+	add_queue(appData.capDmaBuffIndex);
+	appData.capDmaBuffIndex++;
+	if(appData.capDmaBuffIndex >= APP_REC_IRP_QUEUING_DEPTH)
+		appData.capDmaBuffIndex = 0;
 
 }
 
@@ -776,6 +786,8 @@ void  wait_dma_buff_sync()
 
 #define PLAYBACK_TX_BTCTRL  (DMAC_BTCTRL_BLOCKACT_INT | DMAC_BTCTRL_BEATSIZE_HWORD | DMAC_BTCTRL_VALID_Msk | DMAC_BTCTRL_SRCINC_Msk)
 
+#define CAPTURE_RX_BTCTRL  (DMAC_BTCTRL_BLOCKACT_INT | DMAC_BTCTRL_BEATSIZE_HWORD | DMAC_BTCTRL_VALID_Msk | DMAC_BTCTRL_DSTINC_Msk)
+
 
 void start_player(void)
 {
@@ -822,12 +834,56 @@ void stop_play()
 
 void start_record()
 {
+	appData.capDmaBuffIndex = 0;
+
+
 	
+    DMAC_LinkedListDescriptorSetup(&pRxLinkedListDesc[0],
+            CAPTURE_RX_BTCTRL,
+            (void *) I2S_RX_REG,
+            (void *) &rec_buf_queue[0].buf[0],
+            
+            RECORD_PERIOD_SIZE,
+            &pRxLinkedListDesc[1]);
+    DMAC_LinkedListDescriptorSetup(&pRxLinkedListDesc[1],
+            CAPTURE_RX_BTCTRL,
+            (void *) I2S_RX_REG,
+            (void *) &rec_buf_queue[1].buf[0],
+            
+            RECORD_PERIOD_SIZE,
+            &pRxLinkedListDesc[2]);
+	DMAC_LinkedListDescriptorSetup(&pRxLinkedListDesc[2],
+            CAPTURE_RX_BTCTRL,
+            (void *) I2S_RX_REG,
+            (void *) &rec_buf_queue[2].buf[0],
+            
+            RECORD_PERIOD_SIZE,
+            &pRxLinkedListDesc[3]);
+	DMAC_LinkedListDescriptorSetup(&pRxLinkedListDesc[3],
+            CAPTURE_RX_BTCTRL,
+            (void *) I2S_RX_REG,
+            (void *) &rec_buf_queue[3].buf[0],
+            
+            RECORD_PERIOD_SIZE,
+            &pRxLinkedListDesc[4]);
+
+	DMAC_LinkedListDescriptorSetup(&pRxLinkedListDesc[4],
+            CAPTURE_RX_BTCTRL,
+            (void *) I2S_RX_REG,
+            (void *) &rec_buf_queue[4].buf[0],
+            
+            RECORD_PERIOD_SIZE,
+            &pRxLinkedListDesc[0]);
+	
+
+	DMAC_ChannelLinkedListTransfer(DMAC_CHANNEL_0, &pRxLinkedListDesc[0]);
+
 	
 	DMAC_ChannelCallbackRegister(DMAC_CHANNEL_0, dma_callback_record, 0);
+	//DMAC_ChannelTransfer(DMAC_CHANNEL_0,(void *)I2S_RX_REG, (void *) rec_buf_queue[0].buf,RECORD_PERIOD_SIZE);
 
-	appData.capDmaBuffIndex = 0;
-	DMAC_ChannelTransfer(DMAC_CHANNEL_0,(void *)I2S_RX_REG, (void *) rec_buf_queue[0].buf,RECORD_PERIOD_SIZE);
+
+	
 	start_i2s_rx();	
 }
 
@@ -997,13 +1053,14 @@ void APP_PlayTasks ( void )
 
 				stop_play();
 				appData.state = APP_STATE_USB_CONFIGURED;
+				break;
 				//wait_dma_buff_sync();
 				//stop_i2s_tx();
 				//debug_log("pausing play\r\n");
 			}
-			else if(appData.usbInterface == USB_AUDIO_INTERFACE_PLAYING){
-            	process_read_data();
-			}
+			
+            process_read_data();
+			
 
 			break;
 			
@@ -1293,39 +1350,6 @@ void APP_USBDeviceEventHandler(USB_DEVICE_EVENT event,
 
 
 
- void timer_callback(uintptr_t context){
- 
-     // we check dma buff underrun here
-     // overrun check will be done in  copy2dma_buff
-     static unsigned int led_cnt= 0;
-	 //static unsigned int feed_cnt= 0;
-
-
-
-	 if(APP_STATE_PLAYING == appData.state){
-		 if(isUnderRun() && appData.dmaBuffState != PLAY_DMA_BUF_UNDER_RUN){
-
-			 
-			 stop_i2s_tx();
-
-		 	 // PLAY_DMA_BUF_UNDER_RUN will be cleared in copy2dma_buff
-			 appData.dmaBuffState = PLAY_DMA_BUF_UNDER_RUN;
-		 	 debug_log("under run\r\n");
-		 }
-		 if(led_cnt % 1000 == 0 && (appData.dmaBuffState != PLAY_DMA_BUF_UNDER_RUN) )
-		 	LED1_Toggle();
-
-
-		 
-
-		 led_cnt++;
-		 //feed_cnt++;
-
-		 
-	 }
-
-	 
- }
 void usb_open(void )
 {
     appData.usbDevHandle = USB_DEVICE_Open(USB_DEVICE_INDEX_0,

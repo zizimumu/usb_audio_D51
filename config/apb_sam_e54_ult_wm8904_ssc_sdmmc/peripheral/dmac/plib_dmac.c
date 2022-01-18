@@ -231,25 +231,32 @@ void DMAC_ChannelDisable ( DMAC_CHANNEL channel )
 uint16_t DMAC_ChannelGetTransferredCount( DMAC_CHANNEL channel )
 {
 
-	uint32_t id;
-	uint16_t transferredCount;// = descriptor_section[channel].DMAC_BTCNT;
+	uint32_t id,id2;
+	uint16_t transferredCount,cnt;// = descriptor_section[channel].DMAC_BTCNT;
     //transferredCount -= _write_back_section[channel].DMAC_BTCNT;
 
 	SYS_INT_Disable();
-	
+	cnt = descriptor_section[channel].DMAC_BTCNT;
 	id = (DMAC_REGS->DMAC_ACTIVE&0x00001f00) >> 8 ;
+	__DMB();
 	
 	if(id == channel){
-		transferredCount = descriptor_section[channel].DMAC_BTCNT;
-		transferredCount -=  ( (DMAC_REGS->DMAC_ACTIVE) >> 16 );
-
+		transferredCount = cnt -  ((DMAC_REGS->DMAC_ACTIVE) >> 16 );
 	}
 	else{	   
-		transferredCount = descriptor_section[channel].DMAC_BTCNT;
-		transferredCount -= _write_back_section[channel].DMAC_BTCNT;
-
+		transferredCount = cnt - _write_back_section[channel].DMAC_BTCNT;
 	}
 
+	// in case that the active channel become inactive when we read the counter,
+	// we check it again
+	
+	id2 = (DMAC_REGS->DMAC_ACTIVE&0x00001f00) >> 8 ;
+	__DMB();
+	
+	if(id2 != id){
+		transferredCount = cnt - _write_back_section[channel].DMAC_BTCNT;
+	}
+		
 	SYS_INT_Enable();
 	
     return(transferredCount);
