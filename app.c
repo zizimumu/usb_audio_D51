@@ -38,8 +38,6 @@
 #define APP_ID_FEATURE_UNIT    SPEAKER_FEATURE_ID
 
 
-
-
 #ifdef USB_AUDIO_FEEDUP_ENABLE
 	#define	APP_PERIOD_SIZE USB_MAX_RX_SIZE
 #else 
@@ -217,9 +215,6 @@ void send_feed(uint32_t free)
     unsigned int readPt;
     unsigned int freeSize;
 	//static unsigned char dmaBuffState = PLAY_DMA_BUF_NORMAL;
-    
-    
-
 
     /*
 		all the operation below make write point in front of read point 
@@ -261,12 +256,12 @@ void send_feed(uint32_t free)
 		case FEED_NORMAL_STATE:
 			//appData.feedFreq = APP_DEFAULT_SAMPLE_FREQ;
 			if(freeSize >= DMA_BUF_LEN*3/4){
-				printf("fast,free %d\r\n",freeSize);
+				debug_log("fast,free %d\r\n",freeSize);
 				appData.feedState = FEED_FAST_STATE;
 
 			}
 			else if(freeSize <= DMA_BUF_LEN/4){
-				printf("slow, free %d\r\n",freeSize);
+				debug_log("slow, free %d\r\n",freeSize);
 				appData.feedState = FEED_SLOW_STATE;
 
 			}
@@ -305,26 +300,15 @@ void send_feed(uint32_t free)
 	};
 
 
+	FEED_FREQ_2_BUFF(buf->buf,appData.feedFreq);
+
+	buf->isUsed = 1;
+	ret = USB_DEVICE_AUDIO_Write(USB_DEVICE_INDEX_0, &buf->usbReadHandle, 1, buf->buf, 3,1);
 	
-	
-
-	//if(buf->isUsed == 0){
-		FEED_FREQ_2_BUFF(buf->buf,appData.feedFreq);
-
-		buf->isUsed = 1;
-		ret = USB_DEVICE_AUDIO_Write(USB_DEVICE_INDEX_0, &buf->usbReadHandle, 1, buf->buf, 3,1);
-		
-		if(ret != USB_DEVICE_AUDIO_RESULT_OK){
-			debug_log("send_feed error %d\r\n",ret);
-			buf->isUsed = 0;
-		}
-
-		//if(cnt % 250 == 0)
-		//	printf("feed cnt %d\r\n",cnt);
-
-		//cnt++;
-	//}		   
-
+	if(ret != USB_DEVICE_AUDIO_RESULT_OK){
+		debug_log("send_feed error %d\r\n",ret);
+		buf->isUsed = 0;
+	}
 
 }
 
@@ -582,9 +566,6 @@ void process_read_data(void )
             buf_queue[i].isDataReady = 0;
 
 			
-			//if((rx_cnt % 250) == 0)
-			//	printf("rx cnt %d\r\n",rx_cnt);
-			//rx_cnt++;
         //}
     }   
 
@@ -594,10 +575,13 @@ void process_read_data(void )
 
 #endif
 
-	// in case that host stop sending data but does not close playback interface, we must disable I2S and set in underrun mode
+	// in case that host stop sending data but does not close playback interface,
+	// we must disable I2S and set in underrun mode
 	if(SYSTICK_msPeriodGet(timer) >= UNDERRUN_CHECK_MS && appData.dmaBuffState != PLAY_DMA_BUF_UNDER_RUN) { 
 
 		stop_i2s_tx();
+
+		// set to underrun mode
 		appData.dmaBuffState = PLAY_DMA_BUF_UNDER_RUN;
 
 		appData.playWritePt = appData.dmaBeatSize * DMAC_ChannelGetTransferredCount(DMAC_CHANNEL_1);
@@ -605,24 +589,7 @@ void process_read_data(void )
 		if(appData.playWritePt >= sizeof(dma_buff))
 			appData.playWritePt = 0;
 
-		
 		debug_log("play pause\r\n");
-	
-		//send_feed(appData.dmaFreeSize);
-		//timer = SYSTICK_msCounter();
-		//if(isUnderRun() && appData.dmaBuffState != PLAY_DMA_BUF_UNDER_RUN){
-		
-			
-		//	stop_i2s_tx();
-		
-		//	// PLAY_DMA_BUF_UNDER_RUN will be cleared in copy2dma_buff
-		////	appData.dmaBuffState = PLAY_DMA_BUF_UNDER_RUN;
-		//	debug_log("play pause\r\n");
-		//}
-		//if(led_cnt % 500 == 0  )
-		//   LED1_Toggle();
-		
-		//led_cnt++;
 	
 	}
 
@@ -685,8 +652,8 @@ void process_record()
 				debug_log("write error %d, SCHAR_MIN %d\r\n",(int)ret,(int)SCHAR_MIN);
 			}				  
 			
-			if(rec_cnt % 1000 == 0)
-				printf("send %d\r\n",rec_cnt);
+			if(rec_cnt % 2000 == 0)
+				debug_log("send %d\r\n",rec_cnt);
 			rec_cnt++;
 		//}
 
@@ -785,7 +752,6 @@ void  wait_dma_buff_sync()
 
 
 #define PLAYBACK_TX_BTCTRL  (DMAC_BTCTRL_BLOCKACT_INT | DMAC_BTCTRL_BEATSIZE_HWORD | DMAC_BTCTRL_VALID_Msk | DMAC_BTCTRL_SRCINC_Msk)
-
 #define CAPTURE_RX_BTCTRL  (DMAC_BTCTRL_BLOCKACT_INT | DMAC_BTCTRL_BEATSIZE_HWORD | DMAC_BTCTRL_VALID_Msk | DMAC_BTCTRL_DSTINC_Msk)
 
 
@@ -794,7 +760,6 @@ void start_player(void)
 
 //	DMAC_ChannelCallbackRegister(DMAC_CHANNEL_1, dma_callback, 0);
 //	DMAC_ChannelTransfer(DMAC_CHANNEL_1,(void *) &dma_buff[0],(void *)I2S_DEST ,sizeof(dma_buff));
-
 
 
     // Setup DMA linked list
@@ -1011,6 +976,7 @@ void APP_PlayTasks ( void )
             if(appData.isConfigured == 1 && \
 				appData.usbInterface == USB_AUDIO_INTERFACE_PLAYING && \
 				appData.usbInterface_alt == 1){
+				
                 appData.state = APP_STATE_USB_INIT_READ;
 				appData.feedState = FEED_NORMAL_STATE;
 				appData.feedFreq = APP_DEFAULT_SAMPLE_FREQ;
@@ -1024,7 +990,7 @@ void APP_PlayTasks ( void )
         case APP_STATE_USB_INIT_READ :
             // wait for all buff queue data ready, then start player
             if(appData.usbInterface == USB_AUDIO_INTERFACE_PLAYING && appData.usbInterface_alt == 0){
-				// if host change inferce very fast, we change state to wait APP_STATE_USB_CONFIGURED
+				// if host change interface very fast, we change state to wait APP_STATE_USB_CONFIGURED
 				appData.state = APP_STATE_USB_CONFIGURED;
 				break;
 			}
@@ -1041,7 +1007,6 @@ void APP_PlayTasks ( void )
 				_USB_DEVICE_AUDIO_writefeed_clear();
                 send_read_request();
 				
-				//send_read_request();
                 start_player();
             //}
 			}
@@ -1054,9 +1019,7 @@ void APP_PlayTasks ( void )
 				stop_play();
 				appData.state = APP_STATE_USB_CONFIGURED;
 				break;
-				//wait_dma_buff_sync();
-				//stop_i2s_tx();
-				//debug_log("pausing play\r\n");
+
 			}
 			
             process_read_data();
@@ -1074,14 +1037,8 @@ void APP_PlayTasks ( void )
 void APP_Tasks()
 {
 
-	//InitRecBuffQueue();
-	//start_record();
-	//while(1);
-	
-	
-
 	APP_PlayTasks();
-#ifdef AUDIO_IN_ENABLE
+#ifdef AUDIO_CAPTURE_ENABLE
 
 	APP_RecordTasks();
 

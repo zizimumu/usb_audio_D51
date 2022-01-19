@@ -68,7 +68,7 @@ const USB_DEVICE_FUNCTION_REGISTRATION_TABLE funcRegistrationTable[1] =
         .configurationValue = 1,    /* Configuration value */ 
         .interfaceNumber = 0,       /* First interfaceNumber of this function */ 
         .speed = USB_SPEED_HIGH|USB_SPEED_FULL,    /* Function Speed */ 
-#ifdef AUDIO_IN_ENABLE        
+#ifdef AUDIO_CAPTURE_ENABLE        
         .numberOfInterfaces = 3,    /* Number of interfaces */
  #else
 		.numberOfInterfaces = 2,
@@ -134,7 +134,7 @@ const USB_DEVICE_DESCRIPTOR deviceDescriptor =
 	#define FEEDUP_EP_SIZE 0
 #endif
 
-#ifdef AUDIO_IN_ENABLE
+#ifdef AUDIO_CAPTURE_ENABLE
 	#define AUDIO_RECORD_IN_SIZE 83
 #else
 	#define AUDIO_RECORD_IN_SIZE 0
@@ -152,7 +152,7 @@ const uint8_t fullSpeedConfigurationDescriptor[]=
     USB_DESCRIPTOR_CONFIGURATION,                           // Descriptor Type
     
     USB_DEVICE_16bitTo8bitArrange((110+FEEDUP_EP_SIZE+AUDIO_RECORD_IN_SIZE)),       //(110 Bytes)Size of the Configuration descriptor
-#ifdef AUDIO_IN_ENABLE
+#ifdef AUDIO_CAPTURE_ENABLE
 	3,
 #else
     2,                                                      // Number of interfaces in this configuration
@@ -179,7 +179,7 @@ const uint8_t fullSpeedConfigurationDescriptor[]=
 
 
     /* USB Speaker Class-specific AC Interface Descriptor  */
-#ifdef AUDIO_IN_ENABLE
+#ifdef AUDIO_CAPTURE_ENABLE
 	0x0a,
 #else
     0x09,                           // Size of this descriptor in bytes (bLength)
@@ -188,8 +188,8 @@ const uint8_t fullSpeedConfigurationDescriptor[]=
     USB_AUDIO_HEADER,               // HEADER descriptor subtype 	(bDescriptorSubtype)
     0x00,0x01,                      /* Audio Device compliant to the USB Audio
                                      * specification version 1.00 (bcdADC) */
-#ifdef AUDIO_IN_ENABLE
-	0x28+37,0x00,
+#ifdef AUDIO_CAPTURE_ENABLE
+	0x28+31,0x00,
 #else
     0x28,0x00, 
 #endif
@@ -199,7 +199,7 @@ const uint8_t fullSpeedConfigurationDescriptor[]=
                                      * combined length of this descriptor header
                                      * and all Unit and Terminal descriptors. */
 
-#ifdef AUDIO_IN_ENABLE
+#ifdef AUDIO_CAPTURE_ENABLE
 	0x02,
 	0x01,
 	0x02,
@@ -254,7 +254,7 @@ const uint8_t fullSpeedConfigurationDescriptor[]=
 
 
 	
-#ifdef AUDIO_IN_ENABLE   
+#ifdef AUDIO_CAPTURE_ENABLE   
 		/* USB Microphone Input Terminal Descriptor */
 		0x0c, 	  /* bLength */
 		USB_AUDIO_CS_INTERFACE,	  /* bDescriptorType */
@@ -397,7 +397,7 @@ const uint8_t fullSpeedConfigurationDescriptor[]=
 #endif
 
 	
-#ifdef AUDIO_IN_ENABLE
+#ifdef AUDIO_CAPTURE_ENABLE
 	  /*----------------------------------------- 
 							 USB Microphone Audio Streaming Interface 
 												 -------------------------------------------------*/

@@ -95,7 +95,7 @@ extern "C" {
 // *****************************************************************************
 
 #define USB_AUDIO_FEEDUP_ENABLE 1
-#define AUDIO_IN_ENABLE 1
+#define AUDIO_CAPTURE_ENABLE 1
 // #define FEED_DEBUG 1
 // #define RECORD_DEBUG 1
 
@@ -133,9 +133,9 @@ extern "C" {
 
 
 /* Number of Endpoints used */
-#if USB_AUDIO_FEEDUP_ENABLE && AUDIO_IN_ENABLE
+#if USB_AUDIO_FEEDUP_ENABLE && AUDIO_CAPTURE_ENABLE
 #define DRV_USBFSV1_ENDPOINTS_NUMBER                        4
-#elif USB_AUDIO_FEEDUP_ENABLE || AUDIO_IN_ENABLE
+#elif USB_AUDIO_FEEDUP_ENABLE || AUDIO_CAPTURE_ENABLE
 #define DRV_USBFSV1_ENDPOINTS_NUMBER                        3
 #else
 #define DRV_USBFSV1_ENDPOINTS_NUMBER                        2
@@ -169,7 +169,7 @@ extern "C" {
    // the last queue is reserverd for feed transfer
 #define USB_DEVICE_AUDIO_QUEUE_DEPTH_COMBINED (APP_OUT_IRP_QUEUING_DEPTH + APP_REC_IRP_QUEUING_DEPTH+1)
 
-#ifdef AUDIO_IN_ENABLE
+#ifdef AUDIO_CAPTURE_ENABLE
 /* No of Audio streaming interfaces */
 #define USB_DEVICE_AUDIO_MAX_STREAMING_INTERFACES   2
 
