@@ -232,8 +232,8 @@ uint16_t DMAC_ChannelGetTransferredCount( DMAC_CHANNEL channel )
 {
 
 	uint32_t id,id2;
-	uint16_t transferredCount,cnt;// = descriptor_section[channel].DMAC_BTCNT;
-    //transferredCount -= _write_back_section[channel].DMAC_BTCNT;
+	uint16_t transferredCount,cnt;
+
 
 	SYS_INT_Disable();
 	cnt = descriptor_section[channel].DMAC_BTCNT;

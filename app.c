@@ -257,41 +257,44 @@ void send_feed(uint32_t free)
 			//appData.feedFreq = APP_DEFAULT_SAMPLE_FREQ;
 			if(freeSize >= DMA_BUF_LEN*3/4){
 				debug_log("fast,free %d\r\n",freeSize);
-				appData.feedState = FEED_FAST_STATE;
 
+				appData.feedFreq = FEED_MAX_VALUE;
+				appData.feedState = FEED_FAST_STATE;
 			}
 			else if(freeSize <= DMA_BUF_LEN/4){
 				debug_log("slow, free %d\r\n",freeSize);
+
+				appData.feedFreq = FEED_MIN_VALUE;
 				appData.feedState = FEED_SLOW_STATE;
 
 			}
 			else{
 				// feed freq = 7/8*F + (freeSize - 1/4*DMA_BUF_LEN)/ (0.5*DMA_BUF_LEN)  * 3/8*F
 				appData.feedFreq =(uint32_t)( APP_DEFAULT_SAMPLE_FREQ *(0.875+ (2*(float)freeSize/DMA_BUF_LEN - 0.5)*0.375 ) );	
-				
 			}
 			
 			break;
 		case FEED_SLOW_STATE:
-			//appData.feedFreq -= SLOW_FEED_STEP; 
-			//if(appData.feedFreq <= FEED_MIN_VALUE) {
-				appData.feedFreq = FEED_MIN_VALUE;
-			//}		
+			appData.feedFreq = FEED_MIN_VALUE;
+
 
 			// the threshold should be < DMA_BUF_LEN*3/4, 
 			// otherwise feedState would switched to FEED_FAST_STATE after goto FEED_NORMAL_STATE
-			if(freeSize >= DMA_BUF_LEN*3/5)  
+			if(freeSize >= DMA_BUF_LEN/2) {
 				appData.feedState = FEED_NORMAL_STATE;
+				appData.feedFreq = APP_DEFAULT_SAMPLE_FREQ;
+			}
 				
 			break;
 		case FEED_FAST_STATE:
-			//appData.feedFreq += SLOW_FEED_STEP; 
-			//if(appData.feedFreq >= FEED_MAX_VALUE) {
-				appData.feedFreq = FEED_MAX_VALUE;
-			//}
+
+			appData.feedFreq = FEED_MAX_VALUE;
+			
 			// to avoid too much data buffered in DMA, the free size should not be too small
-			if(freeSize <= DMA_BUF_LEN/2)
+			if(freeSize <= DMA_BUF_LEN/2){
 				appData.feedState = FEED_NORMAL_STATE;
+				appData.feedFreq = APP_DEFAULT_SAMPLE_FREQ;
+			}
 			
 			break;		
 		default :

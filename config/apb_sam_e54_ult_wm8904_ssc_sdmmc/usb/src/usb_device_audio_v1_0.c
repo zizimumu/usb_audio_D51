@@ -49,6 +49,8 @@
 
 
 // #define debug_log(...) printf(__VA_ARGS__) 
+#undef debug_log
+#define debug_log(...)
 
 
 // *****************************************************************************
